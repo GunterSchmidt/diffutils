@@ -3,13 +3,15 @@
 // For the full copyright and license information, please view the LICENSE-*
 // files that was distributed with this source code.
 
+// spell-checker:ignore nofile nopath stdins subcmd ndefg ijkl
+
 use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 use std::fs::File;
 #[cfg(not(windows))]
 use std::fs::OpenOptions;
 use std::io::Write;
-use tempfile::{NamedTempFile, tempdir};
+use tempfile::{tempdir, NamedTempFile};
 
 // Integration tests for the diffutils command
 mod common {

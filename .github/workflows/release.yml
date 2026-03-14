@@ -13,6 +13,8 @@
 # Note that the GitHub Release will be created with a generated
 # title/body based on your changelogs.
 
+# spell-checker:ignore longpaths tlsv 
+
 name: Release
 permissions:
   "contents": "write"

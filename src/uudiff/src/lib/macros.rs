@@ -1,5 +1,5 @@
 // asserts equality of the actual diff and expected diff
-// considering datetime varitations
+// considering datetime variations
 //
 // It replaces the modification time in the actual diff
 // with placeholder "TIMESTAMP" and then asserts the equality
@@ -10,6 +10,9 @@
 //
 // replaced = "*** fruits_old.txt\tTIMESTAMP\n
 //             --- fruits_new.txt\tTIMESTAMP\n";
+
+// spell-checker:ignore replacen
+
 #[macro_export]
 macro_rules! assert_diff_eq {
     ($actual:expr, $expected:expr) => {{

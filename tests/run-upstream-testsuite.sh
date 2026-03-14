@@ -23,6 +23,8 @@
 # suite will be run. Tests targeting a command that is not yet implemented
 # (e.g. diff3 or sdiff) are skipped.
 
+# spell-checker:ignore autotools cgit gitserver gitweb gnulib Iseconds nprinttests printtests resultsfile scriptpath setaf upstreamrev urlroot
+
 scriptpath=$(dirname "$(readlink -f "$0")")
 rev=$(git rev-parse HEAD)
 

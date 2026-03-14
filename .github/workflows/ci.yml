@@ -1,6 +1,8 @@
-on: [push, pull_request]
-
 name: Basic CI
+
+# spell-checker:ignore alnum Ccodegen Cinstrument Coverflow Cpanic gnubin gpatch profraw softprops Zcoverage Zpanic zstd
+
+on: [push, pull_request]
 
 env:
   CARGO_TERM_COLOR: always

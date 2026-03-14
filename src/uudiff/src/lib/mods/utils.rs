@@ -13,13 +13,13 @@ use unicode_width::UnicodeWidthStr;
 /// Correctly handle multi-bytes characters.
 /// This assumes that line does not contain any line breaks (if it does, the result is undefined).
 #[must_use]
-pub fn do_expand_tabs(line: &[u8], tabsize: usize) -> Vec<u8> {
+pub fn do_expand_tabs(line: &[u8], tab_size: usize) -> Vec<u8> {
     let tab = b'\t';
     let n_tabs = line.iter().filter(|c| **c == tab).count();
     if n_tabs == 0 {
         return line.to_vec();
     }
-    let mut result = Vec::with_capacity(line.len() + n_tabs * (tabsize - 1));
+    let mut result = Vec::with_capacity(line.len() + n_tabs * (tab_size - 1));
     let mut offset = 0;
 
     let mut iter = line.split(|c| *c == tab).peekable();
@@ -30,7 +30,7 @@ pub fn do_expand_tabs(line: &[u8], tabsize: usize) -> Vec<u8> {
         }
         result.extend_from_slice(chunk);
         if iter.peek().is_some() {
-            result.resize(result.len() + tabsize - offset % tabsize, b' ');
+            result.resize(result.len() + tab_size - offset % tab_size, b' ');
             offset = 0;
         }
     }
@@ -45,10 +45,10 @@ pub fn do_write_line(
     output: &mut Vec<u8>,
     line: &[u8],
     expand_tabs: bool,
-    tabsize: usize,
+    tab_size: usize,
 ) -> std::io::Result<()> {
     if expand_tabs {
-        output.write_all(do_expand_tabs(line, tabsize).as_slice())
+        output.write_all(do_expand_tabs(line, tab_size).as_slice())
     } else {
         output.write_all(line)
     }
@@ -118,9 +118,9 @@ mod tests {
         use super::*;
         use pretty_assertions::assert_eq;
 
-        fn assert_tab_expansion(line: &str, tabsize: usize, expected: &str) {
+        fn assert_tab_expansion(line: &str, tab_size: usize, expected: &str) {
             assert_eq!(
-                do_expand_tabs(line.as_bytes(), tabsize),
+                do_expand_tabs(line.as_bytes(), tab_size),
                 expected.as_bytes()
             );
         }
@@ -161,9 +161,9 @@ mod tests {
         use super::*;
         use pretty_assertions::assert_eq;
 
-        fn assert_line_written(line: &str, expand_tabs: bool, tabsize: usize, expected: &str) {
+        fn assert_line_written(line: &str, expand_tabs: bool, tab_size: usize, expected: &str) {
             let mut output: Vec<u8> = Vec::new();
-            assert!(do_write_line(&mut output, line.as_bytes(), expand_tabs, tabsize).is_ok());
+            assert!(do_write_line(&mut output, line.as_bytes(), expand_tabs, tab_size).is_ok());
             assert_eq!(output, expected.as_bytes());
         }
 

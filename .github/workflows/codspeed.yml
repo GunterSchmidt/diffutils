@@ -1,5 +1,7 @@
 name: CodSpeed
 
+# spell-checker:ignore backtest moonrepo 
+
 on:
   push:
     branches:
