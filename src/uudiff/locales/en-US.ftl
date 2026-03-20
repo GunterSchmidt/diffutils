@@ -15,18 +15,18 @@ common-help = help
 common-version = version
 
 # Common clap error messages
-clap-error-unexpected-argument = { $error_word }: unexpected argument '{ $arg }' found
-clap-error-unexpected-argument-simple = unexpected argument
-clap-error-similar-argument = { $tip_word }: a similar argument exists: '{ $suggestion }'
+clap-error-unexpected-argument = { $error_word }: unexpected option '{ $arg }' found
+clap-error-unexpected-argument-simple = unexpected option
+clap-error-similar-argument = { $tip_word }: a similar option exists: '{ $suggestion }'
 clap-error-pass-as-value = { $tip_word }: to pass '{ $arg }' as a value, use '{ $tip_command }'
 clap-error-invalid-value = { $error_word }: invalid value '{ $value }' for '{ $option }'
 clap-error-value-required = { $error_word }: a value is required for '{ $option }' but none was supplied
-clap-error-missing-required-arguments = { $error_word }: the following required arguments were not provided:
+clap-error-missing-required-arguments = { $error_word }: the following required options were not provided:
 clap-error-possible-values = possible values
 clap-error-help-suggestion = For more information, try '{ $command } --help'.
 common-help-suggestion = For more information, try '--help'.
 # For clap_localization
-clap-error-ambiguous-argument=Error: Argument '{ $arg }' is ambiguous.
+clap-error-ambiguous-argument=Error: Option '{ $arg }' is ambiguous.
   Did you mean one of these?
 
 # Common help text patterns

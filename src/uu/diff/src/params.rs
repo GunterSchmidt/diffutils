@@ -4,6 +4,8 @@
 // For the full copyright and license information, please view the LICENSE-*
 // files that was distributed with this source code.
 
+// spell-checker:ignore numvalue tabsize
+
 use std::ffi::OsString;
 use std::iter::Peekable;
 use std::path::PathBuf;
@@ -213,7 +215,7 @@ pub fn parse_params<I: Iterator<Item = OsString>>(mut args: Peekable<I>) -> Resu
             Err(error) => return Err(error),
         }
         if param.to_string_lossy().starts_with('-') {
-            return Err(format!("unrecognized option '{}'", param.to_string_lossy()));
+            return Err(format!("unexpected option '{}'", param.to_string_lossy()));
         }
         if from.is_none() {
             from = Some(param);
@@ -782,53 +784,65 @@ mod tests {
                     .peekable()
             )
         );
-        assert!(parse_params(
-            [os("diff"), os("--tabsize"), os("foo"), os("bar")]
+        assert!(
+            parse_params(
+                [os("diff"), os("--tabsize"), os("foo"), os("bar")]
+                    .iter()
+                    .cloned()
+                    .peekable()
+            )
+            .is_err()
+        );
+        assert!(
+            parse_params(
+                [os("diff"), os("--tabsize="), os("foo"), os("bar")]
+                    .iter()
+                    .cloned()
+                    .peekable()
+            )
+            .is_err()
+        );
+        assert!(
+            parse_params(
+                [os("diff"), os("--tabsize=r2"), os("foo"), os("bar")]
+                    .iter()
+                    .cloned()
+                    .peekable()
+            )
+            .is_err()
+        );
+        assert!(
+            parse_params(
+                [os("diff"), os("--tabsize=-1"), os("foo"), os("bar")]
+                    .iter()
+                    .cloned()
+                    .peekable()
+            )
+            .is_err()
+        );
+        assert!(
+            parse_params(
+                [os("diff"), os("--tabsize=r2"), os("foo"), os("bar")]
+                    .iter()
+                    .cloned()
+                    .peekable()
+            )
+            .is_err()
+        );
+        assert!(
+            parse_params(
+                [
+                    os("diff"),
+                    os("--tabsize=92233720368547758088"),
+                    os("foo"),
+                    os("bar")
+                ]
                 .iter()
                 .cloned()
                 .peekable()
-        )
-        .is_err());
-        assert!(parse_params(
-            [os("diff"), os("--tabsize="), os("foo"), os("bar")]
-                .iter()
-                .cloned()
-                .peekable()
-        )
-        .is_err());
-        assert!(parse_params(
-            [os("diff"), os("--tabsize=r2"), os("foo"), os("bar")]
-                .iter()
-                .cloned()
-                .peekable()
-        )
-        .is_err());
-        assert!(parse_params(
-            [os("diff"), os("--tabsize=-1"), os("foo"), os("bar")]
-                .iter()
-                .cloned()
-                .peekable()
-        )
-        .is_err());
-        assert!(parse_params(
-            [os("diff"), os("--tabsize=r2"), os("foo"), os("bar")]
-                .iter()
-                .cloned()
-                .peekable()
-        )
-        .is_err());
-        assert!(parse_params(
-            [
-                os("diff"),
-                os("--tabsize=92233720368547758088"),
-                os("foo"),
-                os("bar")
-            ]
-            .iter()
-            .cloned()
-            .peekable()
-        )
-        .is_err());
+            )
+            .is_err()
+        );
     }
     #[test]
     fn double_dash() {
@@ -876,20 +890,24 @@ mod tests {
             }),
             parse_params([os("diff"), os("-"), os("-")].iter().cloned().peekable())
         );
-        assert!(parse_params(
-            [os("diff"), os("foo"), os("bar"), os("-")]
-                .iter()
-                .cloned()
-                .peekable()
-        )
-        .is_err());
-        assert!(parse_params(
-            [os("diff"), os("-"), os("-"), os("-")]
-                .iter()
-                .cloned()
-                .peekable()
-        )
-        .is_err());
+        assert!(
+            parse_params(
+                [os("diff"), os("foo"), os("bar"), os("-")]
+                    .iter()
+                    .cloned()
+                    .peekable()
+            )
+            .is_err()
+        );
+        assert!(
+            parse_params(
+                [os("diff"), os("-"), os("-"), os("-")]
+                    .iter()
+                    .cloned()
+                    .peekable()
+            )
+            .is_err()
+        );
     }
     #[test]
     fn missing_arguments() {
@@ -898,13 +916,15 @@ mod tests {
     }
     #[test]
     fn unknown_argument() {
-        assert!(parse_params(
-            [os("diff"), os("-g"), os("foo"), os("bar")]
-                .iter()
-                .cloned()
-                .peekable()
-        )
-        .is_err());
+        assert!(
+            parse_params(
+                [os("diff"), os("-g"), os("foo"), os("bar")]
+                    .iter()
+                    .cloned()
+                    .peekable()
+            )
+            .is_err()
+        );
         assert!(
             parse_params([os("diff"), os("-g"), os("bar")].iter().cloned().peekable()).is_err()
         );
@@ -925,13 +945,15 @@ mod tests {
             ("--normal", "-e"),
             ("--context", "--normal"),
         ] {
-            assert!(parse_params(
-                [os("diff"), os(arg1), os(arg2), os("foo"), os("bar")]
-                    .iter()
-                    .cloned()
-                    .peekable()
-            )
-            .is_err());
+            assert!(
+                parse_params(
+                    [os("diff"), os(arg1), os(arg2), os("foo"), os("bar")]
+                        .iter()
+                        .cloned()
+                        .peekable()
+                )
+                .is_err()
+            );
         }
     }
 }

@@ -66,6 +66,7 @@ pub mod options {
 /// Holds the given command line arguments except "--version" and "--help".
 #[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct Config {
+    /// path or "-" for stdIn
     pub from: OsString,
     pub to: OsString,
     /// -n, --bytes=LIMIT          compare at most LIMIT bytes

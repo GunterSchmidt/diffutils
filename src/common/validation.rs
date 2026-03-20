@@ -6,20 +6,20 @@
 // spell-checker:ignore prefixcat testcat
 
 use std::ffi::{OsStr, OsString};
-use std::io::{stderr, Write};
+use std::io::{Write, stderr};
 use std::path::{Path, PathBuf};
 use std::process;
 
-use uucore::display::Quotable;
 use uucore::Args;
+use uucore::display::Quotable;
 use uudiff::locale;
 
-/// Gets all available utilities including "coreutils"
+/// Gets all available utilities including "diffutils"
 #[allow(clippy::type_complexity)]
 pub fn get_all_utilities<T: Args>(
     util_map: &phf::OrderedMap<&'static str, (fn(T) -> i32, fn() -> clap::Command)>,
 ) -> Vec<&'static str> {
-    std::iter::once("coreutils")
+    std::iter::once("diffutils")
         .chain(util_map.keys().copied())
         .collect()
 }
@@ -28,10 +28,10 @@ pub fn get_all_utilities<T: Args>(
 pub fn not_found(util: &OsStr) -> ! {
     let _ = writeln!(
         stderr(),
-        "coreutils: unknown program '{}'",
+        "diffutils: unknown program '{}'",
         util.maybe_quote()
     );
-    process::exit(1);
+    process::exit(2);
 }
 
 /// Prints an "unrecognized option" error and exits
@@ -107,8 +107,8 @@ mod tests {
         assert_eq!(name(Path::new("/usr/bin/ls")), Some("ls"));
         assert_eq!(name(Path::new("cat")), Some("cat"));
         assert_eq!(
-            name(Path::new("./target/debug/coreutils")),
-            Some("coreutils")
+            name(Path::new("./target/debug/diffutils")),
+            Some("diffutils")
         );
 
         // Test with extensions

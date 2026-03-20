@@ -40,24 +40,24 @@ fn usage<T>(utils: &UtilityMap<T>, name: &str) {
     );
 }
 
-/// Entry into Coreutils
+/// Entry into Diffutils
 ///
 /// # Arguments
 /// * first arg needs to be the binary/executable. \
-///   This is usually coreutils, but can be the util name itself, e.g. 'ls'. \
+///   This is usually diffutils, but can be the util name itself, e.g. 'ls'. \
 ///   The util name will be checked against the list of enabled utils, where
 ///   * the name exactly matches the name of an applet/util or
 ///   * the name matches <PREFIX><UTIL_NAME> pattern, e.g.
 ///     'my_own_directory_service_ls' as long as the last letters match the utility.
-/// * coreutils arg: --list, --version, -V, --help, -h (or shortened long versions): \
-///   Output information about coreutils itself. \
+/// * diffutils arg: --list, --version, -V, --help, -h (or shortened long versions): \
+///   Output information about diffutils itself. \
 ///   Multiple of these arguments, output limited to one, with help > version > list.
 /// * util name and any number of arguments: \
 ///   Will get passed on to the selected utility. \
 ///   Error if util name is not recognized.
 /// * --help or -h and a following util name: \
 ///   Output help for that specific utility. \
-///   So 'coreutils sum --help' is the same as 'coreutils --help sum'.
+///   So 'diffutils sum --help' is the same as 'diffutils --help sum'.
 #[allow(clippy::cognitive_complexity)]
 fn main() {
     uucore::panic::mute_sigpipe_panic();
@@ -72,15 +72,15 @@ fn main() {
     });
 
     // binary name ends with util name?
-    let is_coreutils = binary_as_util.ends_with("utils");
+    let is_diffutils = binary_as_util.ends_with("utils");
     let matched_util = utils
         .keys()
-        .filter(|&&u| binary_as_util.ends_with(u) && !is_coreutils)
+        .filter(|&&u| binary_as_util.ends_with(u) && !is_diffutils)
         .max_by_key(|u| u.len()); //Prefer stty more than tty. *utils is not ls
 
     let util_name = if let Some(&util) = matched_util {
         Some(OsString::from(util))
-    } else if is_coreutils || binary_as_util.ends_with("box") {
+    } else if is_diffutils || binary_as_util.ends_with("box") {
         // todo: Remove support of "*box" from binary
         uucore::set_utility_is_second_arg();
         args.next()
@@ -112,14 +112,14 @@ fn main() {
                 );
                 let display_list = utils.keys().copied().join(", ");
                 println!("\nCurrently defined functions: {display_list}\n");
-                process::exit(0);
+                process::exit(2);
             }
             let l = util.len();
-            // GNU coreutils --help string shows help for coreutils
+            // GNU diffutils --help string shows help for diffutils
             if util == "-h" || (l <= 6 && util[0..l] == "--help"[0..l]) {
                 usage(&utils, binary_as_util);
                 // process::exit(0);
-                // GNU coreutils --list string shows available utilities as list
+                // GNU diffutils --list string shows available utilities as list
             } else if l <= 6 && util[0..l] == "--list"[0..l] {
                 // If --help is also present, show usage instead of list
                 if args.any(|arg| arg == "--help" || arg == "-h") {
@@ -131,7 +131,7 @@ fn main() {
                     println!("{util}");
                 }
                 process::exit(0);
-            // GNU coreutils --version string shows version
+            // GNU diffutils --version string shows version
             } else if util == "-V" || (l <= 9 && util[0..l] == "--version"[0..l]) {
                 println!("{binary_as_util} {VERSION} (multi-call binary)");
                 process::exit(0);

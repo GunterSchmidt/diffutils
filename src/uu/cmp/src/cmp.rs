@@ -13,7 +13,7 @@ use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::{cmp, fs, io};
 
 use clap::Command;
-use uudiff::error::{strip_errno, UError, UResult};
+use uudiff::error::{UError, UResult, strip_errno};
 use uudiff::translate;
 use uudiff::utils::{self, CompareOk};
 
@@ -54,21 +54,25 @@ pub fn uumain(args: impl uucore::Args) -> UResult<()> {
 
 pub fn cmp_compare(config: &Config) -> Result<CompareOk, CmpError> {
     // check if file is actually a directory, which is not allowed
-    match fs::metadata(&config.from) {
-        Ok(m) => {
-            if m.is_dir() {
-                return Err(CmpError::DirectoryNotAllowed(config.from.clone()));
+    if config.from != "-" {
+        match fs::metadata(&config.from) {
+            Ok(m) => {
+                if m.is_dir() {
+                    return Err(CmpError::DirectoryNotAllowed(config.from.clone()));
+                }
             }
+            Err(e) => return Err(CmpError::FileIo(config.from.clone(), e)),
         }
-        Err(e) => return Err(CmpError::FileIo(config.from.clone(), e)),
     }
-    match fs::metadata(&config.to) {
-        Ok(m) => {
-            if m.is_dir() {
-                return Err(CmpError::DirectoryNotAllowed(config.to.clone()));
+    if config.to != "-" {
+        match fs::metadata(&config.to) {
+            Ok(m) => {
+                if m.is_dir() {
+                    return Err(CmpError::DirectoryNotAllowed(config.to.clone()));
+                }
             }
+            Err(e) => return Err(CmpError::FileIo(config.to.clone(), e)),
         }
-        Err(e) => return Err(CmpError::FileIo(config.to.clone(), e)),
     }
     // check is same file and has no shift by skipping bytes
     if utils::is_same_file(&config.from, &config.to)

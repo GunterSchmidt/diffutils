@@ -10,11 +10,11 @@ pub mod params;
 pub mod side_diff;
 pub mod unified_diff;
 
-use crate::params::{parse_params, Format, Params};
+use crate::params::{Format, Params, parse_params};
 use clap::{Arg, ArgAction, Command};
 use std::ffi::OsString;
 use std::fs;
-use std::io::{self, stdout, Read, Write};
+use std::io::{self, Read, Write, stdout};
 use uucore::format_usage;
 use uudiff::translate;
 // use std::process::{ExitCode, exit};
