@@ -10,13 +10,16 @@ pub mod params;
 pub mod side_diff;
 pub mod unified_diff;
 
-use crate::params::{parse_params, Format};
+use crate::params::{parse_params, Format, Params};
+use clap::{Arg, ArgAction, Command};
 use std::ffi::OsString;
 use std::fs;
 use std::io::{self, stdout, Read, Write};
+use uucore::format_usage;
+use uudiff::translate;
 // use std::process::{ExitCode, exit};
-use uucore::error::{FromIo, UResult};
-use uudiff::utils::{format_io_error, report_failure_to_read_input_file};
+use uudiff::error::{FromIo, UResult};
+use uudiff::utils::report_failure_to_read_input_file;
 
 // Exit codes are documented at
 // https://www.gnu.org/software/diffutils/manual/html_node/Invoking-diff.html.
@@ -25,6 +28,10 @@ use uudiff::utils::{format_io_error, report_failure_to_read_input_file};
 //     and 2 means trouble.
 #[uucore::main]
 pub fn uumain(args: impl uucore::Args) -> UResult<()> {
+    // TODO clap usage needs to be implemented, this works already
+    // let matches = uudiff::clap_localization::handle_clap_result(uu_app(), args)?;
+    // dbg!(&matches);
+
     let args = args.peekable();
     let params = match parse_params(args) {
         Ok(p) => p,
@@ -34,6 +41,14 @@ pub fn uumain(args: impl uucore::Args) -> UResult<()> {
             return Ok(());
         }
     };
+
+    diff_compare(&params)?;
+
+    Ok(())
+}
+
+// TODO split parser and logic
+pub fn diff_compare(params: &Params) -> UResult<()> {
     // if from and to are the same file, no need to perform any comparison
     let maybe_report_identical_files = || {
         if params.report_identical_files {
@@ -86,17 +101,17 @@ pub fn uumain(args: impl uucore::Args) -> UResult<()> {
 
     // run diff
     let result: Vec<u8> = match params.format {
-        Format::Normal => normal_diff::diff(&from_content, &to_content, &params),
-        Format::Unified => unified_diff::diff(&from_content, &to_content, &params),
-        Format::Context => context_diff::diff(&from_content, &to_content, &params),
-        Format::Ed => ed_diff::diff(&from_content, &to_content, &params).unwrap_or_else(|error| {
+        Format::Normal => normal_diff::diff(&from_content, &to_content, params),
+        Format::Unified => unified_diff::diff(&from_content, &to_content, params),
+        Format::Context => context_diff::diff(&from_content, &to_content, params),
+        Format::Ed => ed_diff::diff(&from_content, &to_content, params).unwrap_or_else(|error| {
             eprintln!("{error}");
             uucore::error::set_exit_code(2);
             std::process::exit(2);
         }),
         Format::SideBySide => {
             let mut output = stdout().lock();
-            side_diff::diff(&from_content, &to_content, &mut output, &params)
+            side_diff::diff(&from_content, &to_content, &mut output, params)
         }
     };
     if params.brief && !result.is_empty() {
@@ -122,7 +137,7 @@ pub fn uumain(args: impl uucore::Args) -> UResult<()> {
                 }
             }
             Err(error) => {
-                eprintln!("{}", format_io_error(&error));
+                eprintln!("{}", uucore::error::strip_errno(&error));
                 uucore::error::set_exit_code(1);
                 return Ok(());
             }
@@ -137,4 +152,27 @@ pub fn uumain(args: impl uucore::Args) -> UResult<()> {
     }
 
     Ok(())
+}
+
+// Allowed utility arguments (options)
+pub mod options {
+    /// Generic option for files and other undefined operands
+    pub const FILE: &str = "file";
+}
+
+// Required for build.rs
+pub fn uu_app() -> Command {
+    Command::new(uucore::util_name())
+        .version(uucore::crate_version!())
+        .help_template(uucore::localized_help_template(uucore::util_name()))
+        .override_usage(format_usage(&translate!("diff-usage")))
+        .about(translate!("diff-about"))
+        .infer_long_args(true)
+        .arg(
+            Arg::new(options::FILE)
+                .action(ArgAction::Append)
+                .hide(true)
+                .value_hint(clap::ValueHint::FilePath)
+                .value_parser(clap::value_parser!(OsString)),
+        )
 }

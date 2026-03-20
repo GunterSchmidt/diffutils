@@ -22,11 +22,11 @@ name = "diffutils"
 path = "src/bin/diffutils.rs"
 
 [features]
-# default = ["feat_common_core"]
+default = ["feat_common_core"]
 ## OS feature shortcodes
-# macos = ["feat_os_macos"]
-# unix = ["feat_os_unix"]
-# windows = ["feat_os_windows"]
+macos = ["feat_os_macos"]
+unix = ["feat_os_unix"]
+windows = ["feat_os_windows"]
 #
 ## (primary platforms) feature sets
 # "feat_os_macos" == set of utilities which can be built/run on the MacOS platform
@@ -56,6 +56,13 @@ feat_os_windows = [
 # # This is preferable when running the util as unsupported options
 # # are pointed out to the user, but can make tests fail. 
 # feat_check_not_yet_implemented = []
+##
+## feature sets
+## (common/core and Tier1) feature sets
+# "feat_common_core" == baseline core set of utilities which can be built/run on most targets
+feat_common_core = [
+  "cmp", "diff"
+]
 
 [workspace]
 resolver = "3"
@@ -65,14 +72,14 @@ members = [
 #   "src/uu/stdbuf/src/libstdbuf",
   "src/uudiff",
 #   "src/uucore_procs",
-#   "tests/uutests",
-  # "fuzz",  # TODO
+  # "tests/uutests",
+  # "fuzz",  # TODO fuzz
 ]
 
 [workspace.package]
 authors = ["uutils developers"]
 categories = ["command-line-utilities"]
-edition = "2021"
+edition = "2024"
 rust-version = "1.88.0"
 homepage = "https://github.com/uutils/diffutils"
 description = "A CLI app for generating diff files"
@@ -85,42 +92,74 @@ version = "0.5.1"
 
 [workspace.dependencies]
 assert_cmd = "2.2.0"
+bytecount = "0.6.9"
+chrono = "0.4.0"
+clap = { version = "4.6", features = ["wrap_help", "cargo", "color"] }
 const_format = "0.2.35"
-chrono = "0.4.38"
+ctor = "0.6.0"
 diff_crate = { package = "diff", version = "0.1.13" }
 divan = { version = "4.3.0", package = "codspeed-divan-compat" }
-itoa = "1.0.11"
+itertools = "0.14.0"
+itoa = "1.0.18"
+nix = { version = "0.31.2", default-features = false }
+num-traits = "0.2.19"
+phf = "0.13.1"
+phf_codegen = "0.13.1"
 predicates = "3.1.0"
 pretty_assertions = "1.4.0"
 rand = "0.10.0"
 regex = "1.10.4"
+
 same-file = "1.0.6"
 tempfile = "3.27.0"
+textwrap = { version = "0.16.1", features = ["terminal_size"] }
+thiserror = "2.0.3"
 unicode-width = "0.2.0"
-uucore = "0.7.0"
+uucore = { path = "../coreutils_fork/src/uucore", version = "0.7.0", features = ["parser-size"]}
+# uucore = { path = "../coreutils_work/src/uucore" }
+# uucore = "0.7.0"
 uudiff = { package = "uudiff", path = "src/uudiff" }
-diff = {  package = "uu_diff", path = "src/uu/diff" }
 # sdiff = {package = "uu_sdiff", path = "src/uu/sdiff" }
+uutests = { path = "../coreutils_fork/tests/uutests", version = "0.7.0"}
 
+# Fluent dependencies
+fluent = "0.17.0"
+fluent-bundle = "0.16.0"
+unic-langid = "0.9.6"
+fluent-syntax = "0.12.0"
 
 [dependencies]
-diff.workspace = true
+# clap_complete = { workspace = true, optional = true }
+# clap_mangen = { workspace = true, optional = true }
+clap.workspace = true
+itertools.workspace = true
+phf.workspace = true
 # sdiff.workspace = true
+textwrap.workspace = true
 uucore.workspace = true
 uudiff.workspace = true
 
 # * uutils
 # uu_test = { optional = true, package = "uu_test", path = "src/uu/test" }
 #
-cmp = { package = "uu_cmp", path = "src/uu/cmp" }
+cmp = { optional = true, package = "uu_cmp", path = "src/uu/cmp" }
+diff = {  optional = true, package = "uu_diff", path = "src/uu/diff" }
+bytecount.workspace = true
+# cksum = { optional = true, version = "0.7.0", package = "uu_cksum", path = "src/uu/cksum" }
+
 # diff3 = { package = "uu_diff3", path = "src/uu/diff3" }
 # sdiff = {optional = true,   package = "uu_sdiff", path = "src/uu/sdiff" }
 
 [dev-dependencies]
 assert_cmd.workspace = true
+ctor.workspace = true
 predicates.workspace = true
 regex.workspace = true
 tempfile.workspace = true
+uutests.workspace = true
+
+[build-dependencies]
+phf_codegen.workspace = true
 
 [profile.release]
 lto = true
@@ -149,17 +188,57 @@ debug = true
 inherits = "release"
 lto = "thin"
 
-# [lints]
-# workspace = true
-# 
-# # This is the linting configuration for all crates.
-# # In order to use these, all crates have `[lints] workspace = true` section.
-# [workspace.lints.rust]
-# # Allow "fuzzing" as a "cfg" condition name and "cygwin" as a value for "target_os"
-# # https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html
-# unexpected_cfgs = { level = "warn", check-cfg = [
-#   'cfg(fuzzing)',
-#   'cfg(target_os, values("cygwin"))',
-# ] }
-# unused_qualifications = "warn"
+[lints]
+workspace = true
 
+[workspace.lints.clippy]
+collapsible_if = { level = "allow", priority = 127 } # remove me
+# The counts were generated with this command:
+#   cargo clippy --all-targets --workspace --message-format=json --quiet \
+#     | jq -r '.message.code.code | select(. != null and startswith("clippy::"))' \
+#     | sort | uniq -c | sort -h -r
+#
+#  remove large_stack_arrays when https://github.com/rust-lang/rust-clippy/issues/13774, which is closed.
+#
+all = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+use_self = "warn"                            # nursery lint
+cargo_common_metadata = "allow"              # 3240
+multiple_crate_versions = "allow"            # 2882
+missing_errors_doc = "allow"                 # 1572
+missing_panics_doc = "allow"                 # 946
+must_use_candidate = "allow"                 # 322
+match_same_arms = "allow"                    # 204
+cast_possible_truncation = "allow"           # 122
+too_many_lines = "allow"                     # 101
+cast_possible_wrap = "allow"                 # 78
+cast_sign_loss = "allow"                     # 70
+struct_excessive_bools = "allow"             # 68
+cast_precision_loss = "allow"                # 52
+cast_lossless = "allow"                      # 35
+ignored_unit_patterns = "allow"              # 21
+similar_names = "allow"                      # 20
+# large_stack_arrays = "allow"                 # 20
+needless_pass_by_value = "allow"             # 16
+float_cmp = "allow"                          # 12
+items_after_statements = "allow"             # 11
+return_self_not_must_use = "allow"           # 8
+inline_always = "allow"                      # 6
+fn_params_excessive_bools = "allow"          # 6
+used_underscore_items = "allow"              # 2
+should_panic_without_expect = "allow"        # 2
+
+doc_markdown = "allow"
+unused_self = "allow"
+enum_glob_use = "allow"
+unnested_or_patterns = "allow"
+implicit_hasher = "allow"
+doc_link_with_quotes = "allow"
+format_push_string = "allow"
+flat_map_option = "allow"
+from_iter_instead_of_collect = "allow"
+large_types_passed_by_value = "allow"
+
+[workspace.metadata.cargo-shear]
+ignored = ["clap", "fluent", "libstdbuf"]

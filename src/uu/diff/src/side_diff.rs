@@ -52,22 +52,19 @@ impl<'a> Iterator for CharIter<'a> {
                 break;
             }
             view = &self.current[..index];
-            char = str::from_utf8(view)
+            char = str::from_utf8(view);
         }
 
-        match char {
-            Ok(c) => {
-                self.current = self
-                    .current
-                    .get(view.len()..)
-                    .unwrap_or(&self.current[0..0]);
-                Some((view, UnicodeWidthStr::width(c)))
-            }
-            Err(_) => {
-                // We did not find an utf-8 char within the next 4 bytes, return the single byte.
-                self.current = &self.current[1..];
-                Some((&view[..1], 1))
-            }
+        if let Ok(c) = char {
+            self.current = self
+                .current
+                .get(view.len()..)
+                .unwrap_or(&self.current[0..0]);
+            Some((view, UnicodeWidthStr::width(c)))
+        } else {
+            // We did not find an utf-8 char within the next 4 bytes, return the single byte.
+            self.current = &self.current[1..];
+            Some((&view[..1], 1))
         }
     }
 }
@@ -353,7 +350,7 @@ pub fn diff<T: Write>(
             Result::Left(left_ln) => push_output(left_ln, b"", b'<', output, &config).unwrap(),
             Result::Right(right_ln) => push_output(b"", right_ln, b'>', output, &config).unwrap(),
             Result::Both(left_ln, right_ln) => {
-                push_output(left_ln, right_ln, b' ', output, &config).unwrap()
+                push_output(left_ln, right_ln, b' ', output, &config).unwrap();
             }
         }
     }

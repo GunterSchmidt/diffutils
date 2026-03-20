@@ -22,7 +22,9 @@ use std::sync::OnceLock;
 
 use divan::Bencher;
 use tempfile::TempDir;
-use uu_cmp::parse_params;
+use uu_cmp::{parser_cmp::Config, uu_app};
+// use uu_cmp::parse_params;
+// use uu_cmp::uumain;
 use uudiff::benchmark::{
     bench_binary,
     prepare_bench::{generate_test_files_bytes, BenchContext},
@@ -32,20 +34,25 @@ use uudiff::benchmark::{
 // bench the time it takes to parse the command line arguments
 #[divan::bench]
 fn cmp_parser(bencher: Bencher) {
-    let cmd = "cmd file_1.txt file_2.txt -bl n10M --ignore-initial=100KiB:1MiB";
+    let cmd = "cmd file_1.txt file_2.txt -bl -n10M --ignore-initial=100KiB:1MiB";
     let args = str_to_args(&cmd).into_iter().peekable();
     bencher.with_inputs(|| args.clone()).bench_values(
-        |params: std::iter::Peekable<std::vec::IntoIter<std::ffi::OsString>>| parse_params(params),
+        // |params: std::iter::Peekable<std::vec::IntoIter<std::ffi::OsString>>| parse_params(params),
+        |params: std::iter::Peekable<std::vec::IntoIter<std::ffi::OsString>>| {
+            let matches = uudiff::clap_localization::handle_clap_result(uu_app(), params).unwrap();
+            let config: Config = matches.try_into().unwrap();
+        },
     );
+    // );
 }
 
-// // test the impact on the benchmark if not converting the cmd to Vec<OsString> (doubles for parse)
-#[divan::bench]
-fn cmp_parser_no_prepare() {
-    let cmd = "cmd file_1.txt file_2.txt -bl n10M --ignore-initial=100KiB:1MiB";
-    let args = str_to_args(&cmd).into_iter().peekable();
-    let _ = parse_params(args);
-}
+// // // test the impact on the benchmark if not converting the cmd to Vec<OsString> (doubles for parse)
+// #[divan::bench]
+// fn cmp_parser_no_prepare() {
+//     let cmd = "cmd file_1.txt file_2.txt -bl n10M --ignore-initial=100KiB:1MiB";
+//     let args = str_to_args(&cmd).into_iter().peekable();
+//     let _ = parse_params(args);
+// }
 
 // bench equal, full file read
 #[divan::bench(args = FILE_SIZES_IN_KILO_BYTES)]
@@ -61,7 +68,7 @@ fn cmp_compare_files_equal(bencher: Bencher, kb: u64) {
 }
 
 // bench different; cmp exits on first difference
-#[divan::bench(args = FILE_SIZES_IN_KILO_BYTES)]
+// #[divan::bench(args = FILE_SIZES_IN_KILO_BYTES)]
 fn cmp_compare_files_different(bencher: Bencher, kb: u64) {
     let fp = get_context().get_files_different_kb(kb).unwrap();
     let cmd = format!("cmp -s {} {}", fp.from, fp.to);
@@ -73,6 +80,7 @@ fn cmp_compare_files_different(bencher: Bencher, kb: u64) {
         .bench_refs(|params| uu_cmp::uumain(params.peekable()));
 }
 
+// TODO use coreutils bench logic
 // bench original GNU cmp
 #[cfg(feature = "feat_run_binary_bench")]
 #[divan::bench(args = FILE_SIZES_IN_KILO_BYTES)]

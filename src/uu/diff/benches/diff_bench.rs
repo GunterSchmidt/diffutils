@@ -22,7 +22,7 @@ use divan::Bencher;
 use std::{path::Path, sync::OnceLock};
 use tempfile::TempDir;
 use uudiff::benchmark::{
-    bench_binary,
+    // bench_binary,
     prepare_bench::{generate_test_files_bytes, BenchContext},
     str_to_args,
 };

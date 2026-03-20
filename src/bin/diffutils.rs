@@ -1,72 +1,150 @@
 // This file is part of the uutils diffutils package.
 //
-// For the full copyright and license information, please view the LICENSE-*
-// files that was distributed with this source code.
+// For the full copyright and license information, please view the LICENSE
+// file that was distributed with this source code.
 
-use std::{
-    ffi::{OsStr, OsString},
-    iter::Peekable,
-    path::{Path, PathBuf},
-    process::ExitCode,
-};
-
-/// # Panics
-/// Panics if the binary path cannot be determined
-fn binary_path<I: Iterator<Item = OsString>>(args: &mut Peekable<I>) -> PathBuf {
-    match args.peek() {
-        Some(ref s) if !s.is_empty() => PathBuf::from(s),
-        _ => std::env::current_exe().unwrap(),
-    }
-}
-
-/// #Panics
-/// Panics if path has no UTF-8 valid name
-fn name(binary_path: &Path) -> &OsStr {
-    binary_path.file_stem().unwrap()
-}
+use clap::Command;
+use diffutils::validation;
+use itertools::Itertools as _;
+// conflicts with uu_cmp cmp
+// use std::cmp;
+use std::ffi::OsString;
+use std::process;
+use uucore::Args;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+/// List of utils part of diffutils for a different error message if not found.
+const DIFFUTILS: [&str; 5] = ["cmp", "diff", "diff3", "patch", "sdiff"];
 
-fn usage(name: &str) {
+include!(concat!(env!("OUT_DIR"), "/uutils_map.rs"));
+
+fn usage<T>(utils: &UtilityMap<T>, name: &str) {
     println!("{name} {VERSION} (multi-call binary)\n");
-    println!("Usage: {name} [function [arguments...]]\n");
+    println!("Usage: {name} [function [arguments...]]");
+    println!("       {name} --list");
+    println!();
+    #[cfg(feature = "feat_common_core")]
+    {
+        println!("Functions:");
+        println!("      '<uutils>' [arguments...]");
+        println!();
+    }
+    println!("Options:");
+    println!("      --list    lists all defined functions, one per row\n");
     println!("Currently defined functions:\n");
-    println!("    cmp, diff\n");
+    let display_list = utils.keys().copied().join(", ");
+    let width = std::cmp::min(textwrap::termwidth(), 100) - 4 * 2; // (opinion/heuristic) max 100 chars wide with 4 character side indentions
+    println!(
+        "{}",
+        textwrap::indent(&textwrap::fill(&display_list, width), "    ")
+    );
 }
 
-fn second_arg_error(name: &OsStr) -> ! {
-    eprintln!("Expected utility name as second argument, got nothing.");
-    usage(&name.to_string_lossy());
-    std::process::exit(0);
-}
+/// Entry into Coreutils
+///
+/// # Arguments
+/// * first arg needs to be the binary/executable. \
+///   This is usually coreutils, but can be the util name itself, e.g. 'ls'. \
+///   The util name will be checked against the list of enabled utils, where
+///   * the name exactly matches the name of an applet/util or
+///   * the name matches <PREFIX><UTIL_NAME> pattern, e.g.
+///     'my_own_directory_service_ls' as long as the last letters match the utility.
+/// * coreutils arg: --list, --version, -V, --help, -h (or shortened long versions): \
+///   Output information about coreutils itself. \
+///   Multiple of these arguments, output limited to one, with help > version > list.
+/// * util name and any number of arguments: \
+///   Will get passed on to the selected utility. \
+///   Error if util name is not recognized.
+/// * --help or -h and a following util name: \
+///   Output help for that specific utility. \
+///   So 'coreutils sum --help' is the same as 'coreutils --help sum'.
+#[allow(clippy::cognitive_complexity)]
+fn main() {
+    uucore::panic::mute_sigpipe_panic();
 
-fn main() -> ExitCode {
-    let mut args = uucore::args_os().peekable();
+    let utils = util_map();
+    let mut args = uucore::args_os();
 
-    let exe_path = binary_path(&mut args);
-    let exe_name = name(&exe_path);
+    let binary = validation::binary_path(&mut args);
+    let binary_as_util = validation::name(&binary).unwrap_or_else(|| {
+        usage(&utils, "<unknown binary name>");
+        process::exit(0);
+    });
 
-    let util_name = if exe_name == "diffutils" {
-        // Discard the item we peeked.
-        let _ = args.next();
+    // binary name ends with util name?
+    let is_coreutils = binary_as_util.ends_with("utils");
+    let matched_util = utils
+        .keys()
+        .filter(|&&u| binary_as_util.ends_with(u) && !is_coreutils)
+        .max_by_key(|u| u.len()); //Prefer stty more than tty. *utils is not ls
 
-        args.peek()
-            .cloned()
-            .unwrap_or_else(|| second_arg_error(exe_name))
+    let util_name = if let Some(&util) = matched_util {
+        Some(OsString::from(util))
+    } else if is_coreutils || binary_as_util.ends_with("box") {
+        // todo: Remove support of "*box" from binary
+        uucore::set_utility_is_second_arg();
+        args.next()
     } else {
-        OsString::from(exe_name)
+        validation::not_found(&OsString::from(binary_as_util));
     };
 
-    let code = match util_name.to_str() {
-        Some("cmp") => cmp::uumain(args),
-        Some("diff") => diff::uumain(args),
-        Some(name) => {
-            eprintln!("{name}: utility not supported");
-            // ExitCode::from(2)
-            2
+    // 0th/1st argument equals util name?
+    if let Some(util_os) = util_name {
+        let Some(util) = util_os.to_str() else {
+            // Not UTF-8
+            validation::not_found(&util_os)
+        };
+
+        // Util in known list?
+        if let Some(&(uumain, _)) = utils.get(util) {
+            // TODO: plug the deactivation of the translation
+            // and load the English strings directly at compilation time in the
+            // binary to avoid the load of the flt
+            // Could be something like:
+            // #[cfg(not(feature = "only_english"))]
+            validation::setup_localization_or_exit(util);
+            process::exit(uumain(vec![util_os].into_iter().chain(args)));
+        } else {
+            // Known, but not yet implemented.
+            if DIFFUTILS.contains(&util) {
+                println!(
+                    "The utility '{util}' is part of diffutils, but not yet implemented in Rust."
+                );
+                let display_list = utils.keys().copied().join(", ");
+                println!("\nCurrently defined functions: {display_list}\n");
+                process::exit(0);
+            }
+            let l = util.len();
+            // GNU coreutils --help string shows help for coreutils
+            if util == "-h" || (l <= 6 && util[0..l] == "--help"[0..l]) {
+                usage(&utils, binary_as_util);
+                // process::exit(0);
+                // GNU coreutils --list string shows available utilities as list
+            } else if l <= 6 && util[0..l] == "--list"[0..l] {
+                // If --help is also present, show usage instead of list
+                if args.any(|arg| arg == "--help" || arg == "-h") {
+                    usage(&utils, binary_as_util);
+                    process::exit(0);
+                }
+                let utils: Vec<_> = utils.keys().collect();
+                for util in utils {
+                    println!("{util}");
+                }
+                process::exit(0);
+            // GNU coreutils --version string shows version
+            } else if util == "-V" || (l <= 9 && util[0..l] == "--version"[0..l]) {
+                println!("{binary_as_util} {VERSION} (multi-call binary)");
+                process::exit(0);
+            } else if util.starts_with('-') {
+                // Argument looks like an option but wasn't recognized
+                validation::unrecognized_option(binary_as_util, &util_os);
+            } else {
+                validation::not_found(&util_os);
+            }
         }
-        None => second_arg_error(exe_name),
-    };
-
-    ExitCode::from(code as u8)
+    } else {
+        // no arguments provided
+        usage(&utils, binary_as_util);
+        process::exit(0);
+    }
 }

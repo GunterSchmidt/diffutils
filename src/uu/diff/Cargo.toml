@@ -14,8 +14,8 @@ edition.workspace = true
 rust-version.workspace = true
 readme.workspace = true
 
-# [lints]
-# workspace = true
+[lints]
+workspace = true
 
 [[bin]]
 name = "diff"
@@ -31,20 +31,20 @@ path = "src/diff.rs"
 feat_run_binary_bench = []
 
 [dependencies]
-# const_format = { workspace = true }
-diff_crate = { workspace = true }
-regex = { workspace = true }
-same-file = { workspace = true }
-# sdiff = { workspace = true }
-uucore = { workspace = true }
-uudiff = { workspace = true }
-unicode-width = { workspace = true }
+clap.workspace = true
+diff_crate.workspace = true
+fluent.workspace = true
+regex.workspace = true
+same-file.workspace = true
+uucore.workspace = true
+uudiff.workspace = true
+unicode-width.workspace = true
 
 [dev-dependencies]
-divan = { workspace = true }
-pretty_assertions = { workspace = true }
-rand = { workspace = true }
-tempfile = { workspace = true }
+divan.workspace = true
+pretty_assertions.workspace = true
+rand.workspace = true
+tempfile.workspace = true
 
 [[bench]]
 name = "diff_bench"

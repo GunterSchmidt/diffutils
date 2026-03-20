@@ -3,11 +3,21 @@
 // For the full copyright and license information, please view the LICENSE-*
 // files that was distributed with this source code.
 
+// spell-checker:ignore tabsize
+
 use std::{
     ffi::{OsStr, OsString},
     io::Write,
 };
 use unicode_width::UnicodeWidthStr;
+use uucore::error::strip_errno;
+
+/// Return of compare function if no error occurred.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompareOk {
+    Equal,
+    Different,
+}
 
 /// Replace tabs by spaces in the input line.
 /// Correctly handle multi-bytes characters.
@@ -15,7 +25,8 @@ use unicode_width::UnicodeWidthStr;
 #[must_use]
 pub fn do_expand_tabs(line: &[u8], tabsize: usize) -> Vec<u8> {
     let tab = b'\t';
-    let n_tabs = line.iter().filter(|c| **c == tab).count();
+    // let n_tabs = line.iter().filter(|c| **c == tab).count();
+    let n_tabs = bytecount::count(line, tab);
     if n_tabs == 0 {
         return line.to_vec();
     }
@@ -78,7 +89,8 @@ pub fn is_same_file(from: &OsStr, to: &OsStr) -> bool {
     (from == "-" && to == "-") || same_file::is_same_file(from, to).unwrap_or(false)
 }
 
-pub fn format_failure_to_read_input_file(
+#[deprecated(note = "use format_failure_to_read_input_file")]
+pub fn format_failure_to_read_input_file_exe(
     executable: &OsString,
     filepath: &OsString,
     error: &std::io::Error,
@@ -89,15 +101,21 @@ pub fn format_failure_to_read_input_file(
         "{}: {}: {}",
         executable.to_string_lossy(),
         filepath.to_string_lossy(),
-        format_io_error(&error),
+        strip_errno(error),
     )
 }
 
-/// Removes the (os error x) part of the error message
-pub fn format_io_error(error: &dyn std::error::Error) -> String {
-    let s = error.to_string();
-    s.split(" (os error").next().unwrap_or(&s).to_string()
+pub fn format_failure_to_read_input_file(filepath: &OsString, error: &std::io::Error) -> String {
+    // std::io::Error's display trait outputs "{detail} (os error {code})"
+    // but we want only the {detail} (error string) part
+    format!("{}: {}", filepath.to_string_lossy(), strip_errno(error),)
 }
+
+// /// Removes the (os error x) part of the error message
+// pub fn format_io_error(error: &dyn std::error::Error) -> String {
+//     let s = error.to_string();
+//     s.split(" (os error").next().unwrap_or(&s).to_string()
+// }
 
 pub fn report_failure_to_read_input_file(
     executable: &OsString,
@@ -106,7 +124,7 @@ pub fn report_failure_to_read_input_file(
 ) {
     eprintln!(
         "{}",
-        format_failure_to_read_input_file(executable, filepath, error)
+        format_failure_to_read_input_file_exe(executable, filepath, error)
     );
 }
 

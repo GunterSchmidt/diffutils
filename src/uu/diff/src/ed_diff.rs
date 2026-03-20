@@ -28,14 +28,14 @@ impl std::fmt::Display for DiffError {
 }
 
 impl From<DiffError> for String {
-    fn from(_: DiffError) -> String {
+    fn from(_: DiffError) -> Self {
         "No newline at end of file".into()
     }
 }
 
 impl Mismatch {
-    fn new(line_number_expected: usize, line_number_actual: usize) -> Mismatch {
-        Mismatch {
+    fn new(line_number_expected: usize, line_number_actual: usize) -> Self {
+        Self {
             line_number_expected,
             line_number_actual,
             expected: Vec::new(),
@@ -120,7 +120,7 @@ pub fn diff(expected: &[u8], actual: &[u8], params: &Params) -> Result<Vec<u8>, 
     let mut lines_offset = 0;
     for result in diff_results {
         let line_number_expected: isize = result.line_number_expected as isize + lines_offset;
-        let _line_number_actual: isize = result.line_number_actual as isize + lines_offset;
+        // let _line_number_actual: isize = result.line_number_actual as isize + lines_offset;
         let expected_count: isize = result.expected.len() as isize;
         let actual_count: isize = result.actual.len() as isize;
         match (expected_count, actual_count) {

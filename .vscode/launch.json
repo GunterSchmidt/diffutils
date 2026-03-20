@@ -1,0 +1,66 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug executable 'diffutils'",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=diffutils",
+          "--package=diffutils"
+        ],
+        "filter": {
+          "name": "diffutils",
+          "kind": "bin"
+        }
+      },
+      // "args": ["sdiff", "fruits_old.txt","--", "fruits_new.txt", "-v"],
+      "args": [
+        "cmp",
+        "--ver",
+        // "LICENSE",
+        // "LICENSE-APACHE",
+        // "-bln50KiB",
+        // "10",
+        // "20",
+        // "-i100:200"
+      ],
+      // "args": ["cmp", "renovate.json", "dist-workspace.toml", "-bls"],
+      // "args": ["cmp"],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug 'cmp'",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=cmp",
+          "--package=uu_cmp"
+        ],
+        "filter": {
+          "name": "cmp",
+          "kind": "bin"
+        }
+      },
+      "args": [
+        "src",
+        "LICENSE",
+        "LICENSE-APACHE",
+        "-n",
+        // "1ZiB"
+        "99999999999999999999999999999999999999999999999999999999999"
+        // "-bl",
+        // "-n10M",
+        // "--ignore-initial=100KiB:1MiB",
+      ],
+      "cwd": "${workspaceFolder}"
+    },
+  ]
+}

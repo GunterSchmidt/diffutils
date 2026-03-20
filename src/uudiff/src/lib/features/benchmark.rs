@@ -1,4 +1,4 @@
-// This file is part of the uutils coreutils package.
+// This file is part of the uutils diffutils package.
 //
 // For the full copyright and license information, please view the LICENSE
 // file that was distributed with this source code.
@@ -17,7 +17,7 @@ use std::ffi::OsString;
 /// A vec OsString which can be used instead of ArgsOs.
 pub fn str_to_args(args: &str) -> Vec<OsString> {
     let s: Vec<OsString> = args
-        .split(" ")
+        .split(' ')
         .filter(|s| !s.is_empty())
         .map(OsString::from)
         .collect();
@@ -115,7 +115,7 @@ pub mod prepare_bench {
         id: &str,
     ) -> std::io::Result<FilePair> {
         let id = if id.is_empty() {
-            "".to_string()
+            String::new()
         } else {
             format!("{id}_")
         };
@@ -155,11 +155,7 @@ pub mod prepare_bench {
             0
         } else {
             let c = n_lines / num_differences;
-            if c == 0 {
-                1
-            } else {
-                c
-            }
+            if c == 0 { 1 } else { c }
         };
         // Use a larger 128KB buffer for massive files
         let mut writer_from = BufWriter::with_capacity(128 * 1024, file_from);
@@ -221,6 +217,7 @@ pub mod bench_binary {
     use crate::benchmark::str_to_args;
 
     pub fn bench_binary(program: &str, cmd_args: &str) -> std::process::ExitStatus {
+        // TODO  let mut cmd = cargo_bin_cmd!("diffutils");
         let args = str_to_args(cmd_args);
         Command::new(program)
             .args(args)

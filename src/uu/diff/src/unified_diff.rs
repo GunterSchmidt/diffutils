@@ -25,8 +25,8 @@ struct Mismatch {
 }
 
 impl Mismatch {
-    fn new(line_number_expected: u32, line_number_actual: u32) -> Mismatch {
-        Mismatch {
+    fn new(line_number_expected: u32, line_number_actual: u32) -> Self {
+        Self {
             line_number_expected,
             line_number_actual,
             lines: Vec::new(),

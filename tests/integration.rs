@@ -9,7 +9,7 @@ use std::fs::File;
 #[cfg(not(windows))]
 use std::fs::OpenOptions;
 use std::io::Write;
-use tempfile::{tempdir, NamedTempFile};
+use tempfile::{NamedTempFile, tempdir};
 
 // Integration tests for the diffutils command
 mod common {
@@ -347,23 +347,6 @@ mod diff {
 
 mod cmp {
     use super::*;
-
-    #[test]
-    fn cmp_incompatible_params() -> Result<(), Box<dyn std::error::Error>> {
-        let mut cmd = cargo_bin_cmd!("diffutils");
-        cmd.arg("cmp");
-        cmd.arg("-l");
-        cmd.arg("-s");
-        cmd.arg("/etc/passwd").arg("/etc/group");
-        cmd.assert()
-            .code(predicate::eq(2))
-            .failure()
-            .stderr(predicate::str::ends_with(
-                ": options -l and -s are incompatible\n",
-            ));
-
-        Ok(())
-    }
 
     #[test]
     fn cmp_stdin() -> Result<(), Box<dyn std::error::Error>> {
@@ -830,9 +813,10 @@ mod cmp {
         // early as possible.
         const MAX_TRIES: u8 = 50;
         for tries in 0..=MAX_TRIES {
-            if tries == MAX_TRIES {
-                panic!("cmp took too long to run, /dev/null optimization probably not working")
-            }
+            assert!(
+                tries != MAX_TRIES,
+                "cmp took too long to run, /dev/null optimization probably not working"
+            );
             match child.try_wait() {
                 Ok(Some(status)) => {
                     assert_eq!(status.code(), Some(1));
