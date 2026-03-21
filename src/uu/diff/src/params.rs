@@ -29,8 +29,8 @@ pub struct Params {
     pub executable: OsString,
     pub from: OsString,
     pub to: OsString,
-    pub format: Format,
-    pub context_count: usize,
+    pub format_out: Format,
+    pub n_context_lines: usize,
     pub report_identical_files: bool,
     pub brief: bool,
     pub expand_tabs: bool,
@@ -44,8 +44,8 @@ impl Default for Params {
             executable: OsString::default(),
             from: OsString::default(),
             to: OsString::default(),
-            format: Format::default(),
-            context_count: 3,
+            format_out: Format::default(),
+            n_context_lines: 3,
             report_identical_files: false,
             brief: false,
             expand_tabs: false,
@@ -262,9 +262,9 @@ pub fn parse_params<I: Iterator<Item = OsString>>(mut args: Peekable<I>) -> Resu
         params.to = to_path.into_os_string();
     }
 
-    params.format = format.unwrap_or(Format::default());
+    params.format_out = format.unwrap_or(Format::default());
     if let Some(context_count) = context {
-        params.context_count = context_count;
+        params.n_context_lines = context_count;
     }
     Ok(params)
 }
@@ -408,7 +408,7 @@ mod tests {
                     executable: os("diff"),
                     from: os("foo"),
                     to: os("bar"),
-                    format: Format::Ed,
+                    format_out: Format::Ed,
                     ..Default::default()
                 }),
                 parse_params(
@@ -431,7 +431,7 @@ mod tests {
                     executable: os("diff"),
                     from: os("foo"),
                     to: os("bar"),
-                    format: Format::Context,
+                    format_out: Format::Context,
                     ..Default::default()
                 }),
                 parse_params(params.iter().map(|x| os(x)).peekable())
@@ -452,8 +452,8 @@ mod tests {
                     executable: os("diff"),
                     from: os("foo"),
                     to: os("bar"),
-                    format: Format::Context,
-                    context_count: 42,
+                    format_out: Format::Context,
+                    n_context_lines: 42,
                     ..Default::default()
                 }),
                 parse_params(params.iter().map(|x| os(x)).peekable())
@@ -490,7 +490,7 @@ mod tests {
                     executable: os("diff"),
                     from: os("foo"),
                     to: os("bar"),
-                    format: Format::Unified,
+                    format_out: Format::Unified,
                     ..Default::default()
                 }),
                 parse_params(params.iter().map(|x| os(x)).peekable())
@@ -511,8 +511,8 @@ mod tests {
                     executable: os("diff"),
                     from: os("foo"),
                     to: os("bar"),
-                    format: Format::Unified,
-                    context_count: 42,
+                    format_out: Format::Unified,
+                    n_context_lines: 42,
                     ..Default::default()
                 }),
                 parse_params(params.iter().map(|x| os(x)).peekable())
@@ -545,8 +545,8 @@ mod tests {
                 executable: os("diff"),
                 from: os("foo"),
                 to: os("bar"),
-                format: Format::Unified,
-                context_count: 54,
+                format_out: Format::Unified,
+                n_context_lines: 54,
                 ..Default::default()
             }),
             parse_params(
@@ -561,8 +561,8 @@ mod tests {
                 executable: os("diff"),
                 from: os("foo"),
                 to: os("bar"),
-                format: Format::Unified,
-                context_count: 54,
+                format_out: Format::Unified,
+                n_context_lines: 54,
                 ..Default::default()
             }),
             parse_params(
@@ -577,8 +577,8 @@ mod tests {
                 executable: os("diff"),
                 from: os("foo"),
                 to: os("bar"),
-                format: Format::Unified,
-                context_count: 54,
+                format_out: Format::Unified,
+                n_context_lines: 54,
                 ..Default::default()
             }),
             parse_params(
@@ -593,8 +593,8 @@ mod tests {
                 executable: os("diff"),
                 from: os("foo"),
                 to: os("bar"),
-                format: Format::Context,
-                context_count: 54,
+                format_out: Format::Context,
+                n_context_lines: 54,
                 ..Default::default()
             }),
             parse_params(

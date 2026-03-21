@@ -7,8 +7,9 @@
 
 use std::io::Write;
 
-use crate::params::Params;
 use uudiff::utils::do_write_line;
+
+use crate::parser_diff::Params;
 
 #[derive(Debug, PartialEq)]
 struct Mismatch {
@@ -214,6 +215,8 @@ pub fn diff(expected: &[u8], actual: &[u8], params: &Params) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
+    use crate::parser_diff::Params;
+
     use super::*;
     use pretty_assertions::assert_eq;
 

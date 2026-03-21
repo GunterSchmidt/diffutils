@@ -5,7 +5,7 @@
 
 //! This is the parser for the cmp utility.
 //!
-//! It uses the parsed data clap provides and fills the [Config] for cmp.
+//! It uses the parsed data clap provides and fills the [params] for cmp.
 //! It contains the allowed options, specific parsing logic and parsing error messages.
 //!
 use clap::{Arg, ArgAction, Command};
@@ -64,9 +64,9 @@ pub mod options {
 }
 
 /// Holds the given command line arguments except "--version" and "--help".
-#[derive(Debug, Default, Clone, Eq, PartialEq)]
-pub struct Config {
-    /// path or "-" for stdIn
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct Params {
+    /// path or "-" for stdin
     pub from: OsString,
     pub to: OsString,
     /// -n, --bytes=LIMIT          compare at most LIMIT bytes
@@ -86,7 +86,7 @@ pub struct Config {
     pub verbose: bool,
 }
 
-impl Config {
+impl Params {
     /// Sets the --bytes limit and returns the input as number.
     ///
     /// bytes - unparsed number string, e.g. '50KiB'
@@ -202,29 +202,26 @@ impl Config {
     }
 }
 
-/// Converts clap args to Config.
-impl TryFrom<clap::ArgMatches> for Config {
+/// Converts clap args to params.
+impl TryFrom<clap::ArgMatches> for Params {
     type Error = ParseCmpError;
 
     fn try_from(matches: clap::ArgMatches) -> Result<Self, Self::Error> {
         // dbg!(&matches);
 
-        let mut config = Self {
-            silent: matches.get_flag(options::SILENT),
+        let mut params = Self {
+            silent: matches.get_flag(options::SILENT) || matches.get_flag(options::QUIET),
             ..Default::default()
         };
-        if matches.get_flag(options::QUIET) {
-            config.silent = true;
-        }
-        config.set_verbose(matches.get_flag(options::VERBOSE))?;
-        config.set_print_bytes(matches.get_flag(options::PRINT_BYTES))?;
+        params.set_verbose(matches.get_flag(options::VERBOSE))?;
+        params.set_print_bytes(matches.get_flag(options::PRINT_BYTES))?;
 
         // has bytes-limit?
         if let Some(byte_str) = matches
             .get_many::<String>(options::BYTES_LIMIT)
             .and_then(|mut iter| iter.next())
         {
-            config.set_bytes_limit(byte_str)?;
+            params.set_bytes_limit(byte_str)?;
         }
 
         // has ignore-initial?
@@ -233,7 +230,7 @@ impl TryFrom<clap::ArgMatches> for Config {
             .and_then(|mut iter| iter.next())
         {
             // dbg!(&skip_str);
-            config.set_skip_bytes(skip_str)?;
+            params.set_skip_bytes(skip_str)?;
         }
 
         // get files
@@ -247,17 +244,17 @@ impl TryFrom<clap::ArgMatches> for Config {
             0 => return Err(ParseCmpError::NoOperands(uucore::util_name().to_string())),
             // If only file_1 is set, then file_2 defaults to '-', so it reads from StandardInput.
             1 => {
-                config.from.clone_from(&files[0]);
-                config.to = "-".into();
+                params.from.clone_from(&files[0]);
+                params.to = "-".into();
             }
             2..=4 => {
-                config.from.clone_from(&files[0]);
-                config.to.clone_from(&files[1]);
+                params.from.clone_from(&files[0]);
+                params.to.clone_from(&files[1]);
                 // ignore if ignore-initial is already set by option
                 if files.len() > 2 {
-                    config.set_skip_bytes_file_no(&files[2].to_string_lossy(), 1)?;
+                    params.set_skip_bytes_file_no(&files[2].to_string_lossy(), 1)?;
                     if let Some(skip) = files.get(3) {
-                        config.set_skip_bytes_file_no(&skip.to_string_lossy(), 2)?;
+                        params.set_skip_bytes_file_no(&skip.to_string_lossy(), 2)?;
                     }
                 }
             }
@@ -270,19 +267,13 @@ impl TryFrom<clap::ArgMatches> for Config {
         // outputting to /dev/null.
         #[cfg(not(target_os = "windows"))]
         if is_stdout_dev_null() {
-            config.silent = true;
-            config.verbose = false;
-            config.print_bytes = false;
+            params.silent = true;
+            params.verbose = false;
+            params.print_bytes = false;
         }
 
-        // not yet implemented
-        // if matches.get_flag(options::QUIET) {
-        //     return Err(ParseCmpError::NotYetImplemented("--quiet".to_string()));
-        // }
-
-        // dbg!(&config);
-
-        Ok(config)
+        // dbg!(&params);
+        Ok(params)
     }
 }
 

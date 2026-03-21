@@ -7,10 +7,8 @@
 
 use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
-use std::fs::File;
 #[cfg(not(windows))]
-use std::io::Write;
-use tempfile::{NamedTempFile, tempdir};
+use tempfile::NamedTempFile;
 
 // Integration tests for the diffutils command
 mod common {

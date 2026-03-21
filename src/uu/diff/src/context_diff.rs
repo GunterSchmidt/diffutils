@@ -8,8 +8,9 @@
 use std::collections::VecDeque;
 use std::io::Write;
 
-use crate::params::Params;
 use uudiff::utils::{do_write_line, get_modification_time};
+
+use crate::parser_diff::Params;
 
 #[derive(Debug, PartialEq)]
 pub enum DiffLine {
@@ -279,7 +280,7 @@ pub fn diff(expected: &[u8], actual: &[u8], params: &Params) -> Vec<u8> {
         to_modified_time
     )
     .into_bytes();
-    let diff_results = make_diff(expected, actual, params.context_count, params.brief);
+    let diff_results = make_diff(expected, actual, params.n_context_lines, params.brief);
     if diff_results.is_empty() {
         return Vec::new();
     }
@@ -439,7 +440,7 @@ mod tests {
                                     &Params {
                                         from: "a/alef".into(),
                                         to: (&format!("{target}/alef")).into(),
-                                        context_count: 2,
+                                        n_context_lines: 2,
                                         ..Default::default()
                                     },
                                 );
@@ -525,7 +526,7 @@ mod tests {
                                     &Params {
                                         from: "a/alef_".into(),
                                         to: (&format!("{target}/alef_")).into(),
-                                        context_count: 2,
+                                        n_context_lines: 2,
                                         ..Default::default()
                                     },
                                 );
@@ -614,7 +615,7 @@ mod tests {
                                     &Params {
                                         from: "a/alefx".into(),
                                         to: (&format!("{target}/alefx")).into(),
-                                        context_count: 2,
+                                        n_context_lines: 2,
                                         ..Default::default()
                                     },
                                 );
@@ -706,7 +707,7 @@ mod tests {
                                     &Params {
                                         from: "a/alefr".into(),
                                         to: (&format!("{target}/alefr")).into(),
-                                        context_count: 2,
+                                        n_context_lines: 2,
                                         ..Default::default()
                                     },
                                 );

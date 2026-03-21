@@ -7,10 +7,12 @@ pub mod context_diff;
 pub mod ed_diff;
 pub mod normal_diff;
 pub mod params;
+pub mod parser_diff;
 pub mod side_diff;
 pub mod unified_diff;
 
-use crate::params::{Format, Params, parse_params};
+use crate::params::parse_params;
+use crate::parser_diff::{Format, Params};
 use clap::{Arg, ArgAction, Command};
 use std::ffi::OsString;
 use std::fs;
@@ -28,12 +30,17 @@ use uudiff::utils::report_failure_to_read_input_file;
 //     and 2 means trouble.
 #[uucore::main]
 pub fn uumain(args: impl uucore::Args) -> UResult<()> {
-    // TODO clap usage needs to be implemented, this works already
-    // let matches = uudiff::clap_localization::handle_clap_result(uu_app(), args)?;
+    let matches = uudiff::clap_localization::handle_clap_result(uu_app(), args)?;
     // dbg!(&matches);
 
-    let args = args.peekable();
-    let params = match parse_params(args) {
+    let params: Params = matches.try_into()?;
+
+    let mut args = uucore::args_os().peekable();
+    if args.peek().unwrap().to_string_lossy().ends_with("utils") {
+        args.next();
+    }
+    // args.next();
+    let params_old = match parse_params(args) {
         Ok(p) => p,
         Err(error) => {
             eprintln!("{error}");
@@ -41,6 +48,7 @@ pub fn uumain(args: impl uucore::Args) -> UResult<()> {
             return Ok(());
         }
     };
+    dbg!(&params_old);
 
     diff_compare(&params)?;
 
@@ -81,7 +89,7 @@ pub fn diff_compare(params: &Params) -> UResult<()> {
     let from_content = match read_file_contents(&params.from) {
         Ok(from_content) => from_content,
         Err(e) => {
-            report_failure_to_read_input_file(&params.executable, &params.from, &e);
+            report_failure_to_read_input_file(&params.from, &e);
             io_error = true;
             vec![]
         }
@@ -89,7 +97,7 @@ pub fn diff_compare(params: &Params) -> UResult<()> {
     let to_content = match read_file_contents(&params.to) {
         Ok(to_content) => to_content,
         Err(e) => {
-            report_failure_to_read_input_file(&params.executable, &params.to, &e);
+            report_failure_to_read_input_file(&params.to, &e);
             io_error = true;
             vec![]
         }
@@ -100,7 +108,7 @@ pub fn diff_compare(params: &Params) -> UResult<()> {
     }
 
     // run diff
-    let result: Vec<u8> = match params.format {
+    let result: Vec<u8> = match params.format_out {
         Format::Normal => normal_diff::diff(&from_content, &to_content, params),
         Format::Unified => unified_diff::diff(&from_content, &to_content, params),
         Format::Context => context_diff::diff(&from_content, &to_content, params),
@@ -154,25 +162,7 @@ pub fn diff_compare(params: &Params) -> UResult<()> {
     Ok(())
 }
 
-// Allowed utility arguments (options)
-pub mod options {
-    /// Generic option for files and other undefined operands
-    pub const FILE: &str = "file";
-}
-
 // Required for build.rs
 pub fn uu_app() -> Command {
-    Command::new(uucore::util_name())
-        .version(uucore::crate_version!())
-        .help_template(uucore::localized_help_template(uucore::util_name()))
-        .override_usage(format_usage(&translate!("diff-usage")))
-        .about(translate!("diff-about"))
-        .infer_long_args(true)
-        .arg(
-            Arg::new(options::FILE)
-                .action(ArgAction::Append)
-                .hide(true)
-                .value_hint(clap::ValueHint::FilePath)
-                .value_parser(clap::value_parser!(OsString)),
-        )
+    crate::parser_diff::uu_app()
 }

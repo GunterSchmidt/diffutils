@@ -4,16 +4,17 @@
 // file that was distributed with this source code.
 // #[cfg(target_os = "linux")]
 
-// spell-checker:words ijkl ndefg
+// spell-checker:ignore ijkl ndefg
 
+use ::cmp::parser_cmp::{Params, SkipU64, uu_app};
 use assert_cmd::cargo::cargo_bin_cmd;
-// use cmp::parser_cmp::{Config, SkipU64, uu_app};
 use predicates::prelude::predicate;
-use std::{fs::File, fs::OpenOptions, io::Write};
+use std::{ffi::OsString, fs::File, fs::OpenOptions, io::Write};
+use tempfile::tempdir;
+use uudiff::error::UResult;
 use uutests::{at_and_ucmd, new_ucmd};
 
 mod cmp {
-    use tempfile::tempdir;
 
     use super::*;
 
@@ -549,27 +550,24 @@ mod cmp {
 }
 
 mod parser {
-    use std::ffi::OsString;
 
-    use cmp::parser_cmp::{Config, SkipU64, uu_app};
-    use uudiff::error::UResult;
-    use uutests::new_ucmd;
+    use super::*;
 
     fn os(s: &str) -> OsString {
         OsString::from(s)
     }
 
     /// Simplify call of parser, just pass a normal string like in the terminal.
-    fn parse(args: &str) -> UResult<Config> {
+    fn parse(args: &str) -> UResult<Params> {
         let opts = args
             .split(' ')
             .filter(|arg| !arg.is_empty())
             .map(OsString::from);
 
         let matches = uudiff::clap_localization::handle_clap_result(uu_app(), opts)?;
-        let config: Config = matches.try_into()?;
+        let params: Params = matches.try_into()?;
 
-        Ok(config)
+        Ok(params)
     }
 
     #[test]
@@ -603,7 +601,7 @@ mod parser {
         // file_1 only
         assert_eq!(
             parse("cmp foo").unwrap(),
-            Config {
+            Params {
                 from: os("foo"),
                 to: os("-"),
                 ..Default::default()
@@ -613,7 +611,7 @@ mod parser {
         // double dash without operand: following is interpreted as file
         assert_eq!(
             parse("cmp foo -- --help").unwrap(),
-            Config {
+            Params {
                 from: os("foo"),
                 to: os("--help"),
                 ..Default::default()
@@ -623,7 +621,7 @@ mod parser {
         // --ignore-initial for file_1 as operand
         assert_eq!(
             parse("cmp foo bar 1K").unwrap(),
-            Config {
+            Params {
                 from: os("foo"),
                 to: os("bar"),
                 skip_bytes_from: Some(1024),
@@ -734,7 +732,7 @@ mod parser {
     #[test]
     fn test_execution_modes() {
         // --print-bytes
-        let print_bytes = Config {
+        let print_bytes = Params {
             from: os("foo"),
             to: os("bar"),
             print_bytes: true,
@@ -748,7 +746,7 @@ mod parser {
         assert_eq!(parse("cmp --pr foo bar").unwrap(), print_bytes);
 
         // --verbose
-        let verbose = Config {
+        let verbose = Params {
             from: os("foo"),
             to: os("bar"),
             verbose: true,
@@ -759,7 +757,7 @@ mod parser {
         assert_eq!(parse("cmp --verb foo bar").unwrap(), verbose.clone());
 
         // --verbose & --print-bytes
-        let verbose_and_print_bytes = Config {
+        let verbose_and_print_bytes = Params {
             from: os("foo"),
             to: os("bar"),
             print_bytes: true,
@@ -788,7 +786,7 @@ mod parser {
         );
 
         // --silent --quiet
-        let silent = Config {
+        let silent = Params {
             from: os("foo"),
             to: os("bar"),
             silent: true,
@@ -809,7 +807,7 @@ mod parser {
     /// - cmp file_1 file_2 -bl -n1kiB
     /// - cmp file_1 file_2 -bln1kiB
     fn test_bytes_limit() {
-        let mut bytes_limit = Config {
+        let mut bytes_limit = Params {
             from: os("foo"),
             to: os("bar"),
             bytes_limit: Some(1000),
@@ -889,7 +887,7 @@ mod parser {
 
     #[test]
     fn test_ignore_initial() {
-        let mut skips = Config {
+        let mut skips = Params {
             from: os("foo"),
             to: os("bar"),
             skip_bytes_from: Some(1),
@@ -954,7 +952,7 @@ mod parser {
             for (j, v) in values.iter().enumerate() {
                 assert_eq!(
                     parse(&format!("cmp -i 1{}:2 foo bar", suffixes[j])).unwrap(),
-                    Config {
+                    Params {
                         from: os("foo"),
                         to: os("bar"),
                         skip_bytes_from: Some(*v),

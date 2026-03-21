@@ -22,12 +22,12 @@ use std::sync::OnceLock;
 
 use divan::Bencher;
 use tempfile::TempDir;
-use uu_cmp::{parser_cmp::Config, uu_app};
+use uu_cmp::{parser_cmp::Params, uu_app};
 // use uu_cmp::parse_params;
 // use uu_cmp::uumain;
 use uudiff::benchmark::{
     bench_binary,
-    prepare_bench::{generate_test_files_bytes, BenchContext},
+    prepare_bench::{BenchContext, generate_test_files_bytes},
     str_to_args,
 };
 
@@ -40,7 +40,7 @@ fn cmp_parser(bencher: Bencher) {
         // |params: std::iter::Peekable<std::vec::IntoIter<std::ffi::OsString>>| parse_params(params),
         |params: std::iter::Peekable<std::vec::IntoIter<std::ffi::OsString>>| {
             let matches = uudiff::clap_localization::handle_clap_result(uu_app(), params).unwrap();
-            let config: Config = matches.try_into().unwrap();
+            let params: Params = matches.try_into().unwrap();
         },
     );
     // );

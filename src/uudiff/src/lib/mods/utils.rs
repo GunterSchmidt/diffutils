@@ -89,22 +89,6 @@ pub fn is_same_file(from: &OsStr, to: &OsStr) -> bool {
     (from == "-" && to == "-") || same_file::is_same_file(from, to).unwrap_or(false)
 }
 
-#[deprecated(note = "use format_failure_to_read_input_file")]
-pub fn format_failure_to_read_input_file_exe(
-    executable: &OsString,
-    filepath: &OsString,
-    error: &std::io::Error,
-) -> String {
-    // std::io::Error's display trait outputs "{detail} (os error {code})"
-    // but we want only the {detail} (error string) part
-    format!(
-        "{}: {}: {}",
-        executable.to_string_lossy(),
-        filepath.to_string_lossy(),
-        strip_errno(error),
-    )
-}
-
 pub fn format_failure_to_read_input_file(filepath: &OsString, error: &std::io::Error) -> String {
     // std::io::Error's display trait outputs "{detail} (os error {code})"
     // but we want only the {detail} (error string) part
@@ -117,15 +101,8 @@ pub fn format_failure_to_read_input_file(filepath: &OsString, error: &std::io::E
 //     s.split(" (os error").next().unwrap_or(&s).to_string()
 // }
 
-pub fn report_failure_to_read_input_file(
-    executable: &OsString,
-    filepath: &OsString,
-    error: &std::io::Error,
-) {
-    eprintln!(
-        "{}",
-        format_failure_to_read_input_file_exe(executable, filepath, error)
-    );
+pub fn report_failure_to_read_input_file(filepath: &OsString, error: &std::io::Error) {
+    eprintln!("{}", format_failure_to_read_input_file(filepath, error));
 }
 
 #[cfg(test)]

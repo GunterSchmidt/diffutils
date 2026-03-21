@@ -10,7 +10,7 @@ use diff_crate::Result;
 use std::{io::Write, vec};
 use unicode_width::UnicodeWidthStr;
 
-use crate::params::Params;
+use crate::parser_diff::Params;
 
 const GUTTER_WIDTH_MIN: usize = 3;
 

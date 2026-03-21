@@ -17,7 +17,7 @@ use uudiff::error::{UError, UResult, strip_errno};
 use uudiff::translate;
 use uudiff::utils::{self, CompareOk};
 
-use crate::parser_cmp::{BytesLimitU64, Config, SkipU64};
+use crate::parser_cmp::{BytesLimitU64, Params, SkipU64};
 
 #[cfg(not(target_os = "windows"))]
 use std::os::unix::fs::MetadataExt;
@@ -30,16 +30,16 @@ pub fn uumain(args: impl uucore::Args) -> UResult<()> {
     // let x = execution_phrase();
     // dbg!(x);
 
-    let config: Config = matches.try_into()?;
+    let params: Params = matches.try_into()?;
 
-    match cmp_compare(&config) {
+    match cmp_compare(&params) {
         Ok(res) => match res {
             CompareOk::Equal => uucore::error::set_exit_code(0),
             CompareOk::Different => uucore::error::set_exit_code(1),
         },
         Err(e) => {
-            // dbg!(&config, &e);
-            if config.silent {
+            // dbg!(&params, &e);
+            if params.silent {
                 uucore::error::set_exit_code(2);
                 return Ok(());
             }
@@ -52,41 +52,41 @@ pub fn uumain(args: impl uucore::Args) -> UResult<()> {
     Ok(())
 }
 
-pub fn cmp_compare(config: &Config) -> Result<CompareOk, CmpError> {
+pub fn cmp_compare(params: &Params) -> Result<CompareOk, CmpError> {
     // check if file is actually a directory, which is not allowed
-    if config.from != "-" {
-        match fs::metadata(&config.from) {
+    if params.from != "-" {
+        match fs::metadata(&params.from) {
             Ok(m) => {
                 if m.is_dir() {
-                    return Err(CmpError::DirectoryNotAllowed(config.from.clone()));
+                    return Err(CmpError::DirectoryNotAllowed(params.from.clone()));
                 }
             }
-            Err(e) => return Err(CmpError::FileIo(config.from.clone(), e)),
+            Err(e) => return Err(CmpError::FileIo(params.from.clone(), e)),
         }
     }
-    if config.to != "-" {
-        match fs::metadata(&config.to) {
+    if params.to != "-" {
+        match fs::metadata(&params.to) {
             Ok(m) => {
                 if m.is_dir() {
-                    return Err(CmpError::DirectoryNotAllowed(config.to.clone()));
+                    return Err(CmpError::DirectoryNotAllowed(params.to.clone()));
                 }
             }
-            Err(e) => return Err(CmpError::FileIo(config.to.clone(), e)),
+            Err(e) => return Err(CmpError::FileIo(params.to.clone(), e)),
         }
     }
     // check is same file and has no shift by skipping bytes
-    if utils::is_same_file(&config.from, &config.to)
-        && config.skip_bytes_from == config.skip_bytes_to
+    if utils::is_same_file(&params.from, &params.to)
+        && params.skip_bytes_from == params.skip_bytes_to
     {
         return Ok(CompareOk::Equal);
     }
 
-    let mut from = prepare_reader(&config.from, config.skip_bytes_from)?;
-    let mut to = prepare_reader(&config.to, config.skip_bytes_to)?;
+    let mut from = prepare_reader(&params.from, params.skip_bytes_from)?;
+    let mut to = prepare_reader(&params.to, params.skip_bytes_to)?;
 
-    let mut offset_width = config.bytes_limit.unwrap_or(BytesLimitU64::MAX);
+    let mut offset_width = params.bytes_limit.unwrap_or(BytesLimitU64::MAX);
 
-    if let (Ok(a_meta), Ok(b_meta)) = (fs::metadata(&config.from), fs::metadata(&config.to)) {
+    if let (Ok(a_meta), Ok(b_meta)) = (fs::metadata(&params.from), fs::metadata(&params.to)) {
         #[cfg(not(target_os = "windows"))]
         let (from_size, to_size) = (a_meta.size(), b_meta.size());
 
@@ -95,7 +95,7 @@ pub fn cmp_compare(config: &Config) -> Result<CompareOk, CmpError> {
 
         // If the files have different sizes, we already know they are not identical. If we have not
         // been asked to show even the first difference, we can quit early.
-        if config.silent && from_size != to_size {
+        if params.silent && from_size != to_size {
             return Ok(CompareOk::Different);
         }
 
@@ -118,14 +118,14 @@ pub fn cmp_compare(config: &Config) -> Result<CompareOk, CmpError> {
         let from_buf = match from.fill_buf() {
             Ok(buf) => buf,
             Err(e) => {
-                return Err(CmpError::FileReadError(config.from.clone(), e));
+                return Err(CmpError::FileReadError(params.from.clone(), e));
             }
         };
 
         let to_buf = match to.fill_buf() {
             Ok(buf) => buf,
             Err(e) => {
-                return Err(CmpError::FileReadError(config.to.clone(), e));
+                return Err(CmpError::FileReadError(params.to.clone(), e));
             }
         };
 
@@ -136,12 +136,12 @@ pub fn cmp_compare(config: &Config) -> Result<CompareOk, CmpError> {
 
         if from_buf.is_empty() || to_buf.is_empty() {
             let eof_on = if from_buf.is_empty() {
-                &config.from.to_string_lossy()
+                &params.from.to_string_lossy()
             } else {
-                &config.to.to_string_lossy()
+                &params.to.to_string_lossy()
             };
 
-            report_eof(at_byte, at_line, start_of_line, eof_on, config);
+            report_eof(at_byte, at_line, start_of_line, eof_on, params);
             return Ok(CompareOk::Different);
         }
 
@@ -157,7 +157,7 @@ pub fn cmp_compare(config: &Config) -> Result<CompareOk, CmpError> {
 
             start_of_line = *last == b'\n';
 
-            if let Some(bytes_limit) = config.bytes_limit {
+            if let Some(bytes_limit) = params.bytes_limit {
                 if at_byte > bytes_limit {
                     break;
                 }
@@ -175,14 +175,14 @@ pub fn cmp_compare(config: &Config) -> Result<CompareOk, CmpError> {
             if from_byte != to_byte {
                 compare = CompareOk::Different;
 
-                if config.verbose {
+                if params.verbose {
                     format_verbose_difference(
                         from_byte,
                         to_byte,
                         at_byte,
                         offset_width,
                         &mut output,
-                        config,
+                        params,
                     );
                     stdout.write_all(output.as_slice())?;
                     // if let Err(e) = stdout.write_all(output.as_slice())
@@ -192,7 +192,7 @@ pub fn cmp_compare(config: &Config) -> Result<CompareOk, CmpError> {
                     // }
                     output.clear();
                 } else {
-                    report_difference(from_byte, to_byte, at_byte, at_line, config)?;
+                    report_difference(from_byte, to_byte, at_byte, at_line, params)?;
                     return Ok(CompareOk::Different);
                 }
             }
@@ -204,7 +204,7 @@ pub fn cmp_compare(config: &Config) -> Result<CompareOk, CmpError> {
 
             at_byte += 1;
 
-            if let Some(max_bytes) = config.bytes_limit {
+            if let Some(max_bytes) = params.bytes_limit {
                 if at_byte > max_bytes {
                     break;
                 }
@@ -272,7 +272,7 @@ fn format_verbose_difference(
     at_byte: BytesLimitU64,
     offset_width: usize,
     output: &mut Vec<u8>,
-    params: &Config,
+    params: &Params,
 ) {
     assert!(!params.silent);
 
@@ -361,7 +361,7 @@ fn report_difference(
     to_byte: u8,
     at_byte: BytesLimitU64,
     at_line: u64,
-    params: &Config,
+    params: &Params,
 ) -> io::Result<()> {
     if params.silent {
         return Ok(());
@@ -403,7 +403,7 @@ fn report_eof(
     at_line: u64,
     start_of_line: bool,
     eof_on: &str,
-    params: &Config,
+    params: &Params,
 ) {
     if params.silent {
         return;

@@ -57,7 +57,9 @@ diff-help-width = output at most NUM (default 130) print columns
 
 # Error messages
 # some of these are available centralized I believe
-# diff-error-is-directory = '{ $name }' is a directory
-# diff-error-no-such-file-or-directory = { $name }: No such file or directory
+diff-error-conflicting-output-options = Conflicting output style options '--{ $opt1 }' and '--{ $opt2 }'.
 # diff-error-extra-operand = extra operand '{ $operand }'
+# diff-error-is-directory = '{ $name }' is a directory
 # diff-error-missing-operands = missing operand after '{ $exe_name }'
+# diff-error-no-such-file-or-directory = { $name }: No such file or directory
+diff-error-not-yet-implemented = the option '--{ $option}' is not yet implemented

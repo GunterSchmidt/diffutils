@@ -7,7 +7,7 @@
 
 use std::io::Write;
 
-use crate::params::Params;
+use crate::parser_diff::Params;
 use uudiff::utils::do_write_line;
 
 #[derive(Debug, PartialEq)]
