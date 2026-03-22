@@ -9,6 +9,7 @@ use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::*;
 #[cfg(not(windows))]
 use tempfile::NamedTempFile;
+// use uutests::new_ucmd; does not work for diffutils itself
 
 // Integration tests for the diffutils command
 mod common {
@@ -57,11 +58,8 @@ mod common {
         #[cfg(windows)]
         let error_message = "The system cannot find the file specified.";
 
-        // let pkg = assert_cmd::pkg_name!();
-        // let x = cargo_bin_cmd!("diffutils");
-        // dbg!(pkg, x);
-
         for sub_cmd in ["diff", "cmp"] {
+            dbg!(&sub_cmd, &no_path.as_os_str().to_string_lossy());
             let mut cmd = cargo_bin_cmd!("diffutils");
             cmd.arg(sub_cmd);
             cmd.arg(&no_path).arg(file.path());
@@ -85,6 +83,7 @@ mod common {
                 )));
         }
 
+        // This requires two error messages. This is difficult to replicate
         let mut cmd = cargo_bin_cmd!("diffutils");
         cmd.arg("diff");
         cmd.arg(&no_path).arg(&no_path);

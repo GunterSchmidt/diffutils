@@ -226,6 +226,8 @@ fn prepare_reader(
     let mut reader: Box<dyn BufRead> = if path == "-" {
         Box::new(BufReader::new(io::stdin()))
     } else {
+        // TODO use UIoError
+        // Centralize error message DiffUtilError (DiffError and CmpErrors?)
         match fs::File::open(path) {
             Ok(file) => Box::new(BufReader::new(file)),
             Err(e) => {
@@ -496,7 +498,7 @@ fn write_visible_byte_padded(output: &mut Vec<u8>, byte: u8) {
     output.extend_from_slice(&SPACES[..padding]);
 }
 
-/// Contains all parser errors and their text messages.
+/// Contains all cmp errors and their text messages.
 ///
 /// All errors can be output easily using the normal Display functionality.
 /// To format the error message for the typical diffutils output, use [format_error_text].

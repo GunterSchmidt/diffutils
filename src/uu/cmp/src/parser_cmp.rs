@@ -217,18 +217,12 @@ impl TryFrom<clap::ArgMatches> for Params {
         params.set_print_bytes(matches.get_flag(options::PRINT_BYTES))?;
 
         // has bytes-limit?
-        if let Some(byte_str) = matches
-            .get_many::<String>(options::BYTES_LIMIT)
-            .and_then(|mut iter| iter.next())
-        {
+        if let Some(byte_str) = matches.get_one::<String>(options::BYTES_LIMIT) {
             params.set_bytes_limit(byte_str)?;
         }
 
         // has ignore-initial?
-        if let Some(skip_str) = matches
-            .get_many::<String>(options::IGNORE_INITIAL)
-            .and_then(|mut iter| iter.next())
-        {
+        if let Some(skip_str) = matches.get_one::<String>(options::IGNORE_INITIAL) {
             // dbg!(&skip_str);
             params.set_skip_bytes(skip_str)?;
         }
@@ -419,7 +413,7 @@ pub fn uu_app() -> Command {
                 .long("bytes")
                 .short('n')
                 .value_name("LIMIT")
-                .action(ArgAction::Append)
+                .action(ArgAction::Set)
                 .help(translate!("cmp-help-bytes-limit")),
         )
         .arg(
@@ -427,7 +421,7 @@ pub fn uu_app() -> Command {
                 .long("ignore-initial")
                 .short('i')
                 .value_name("SKIP[:SKIP2]")
-                .action(ArgAction::Append)
+                .action(ArgAction::Set)
                 .help(translate!("cmp-help-ignore-initial")),
         )
         .arg(
@@ -447,8 +441,10 @@ pub fn uu_app() -> Command {
             Arg::new(options::SILENT)
                 .long("silent")
                 .short('s')
+                // .visible_alias(options::QUIET)
                 .action(ArgAction::SetTrue)
                 .help(translate!("cmp-help-silent")),
+            // TODO .visible_short_flag_alias('q'))
         )
         .arg(
             Arg::new(options::VERBOSE)

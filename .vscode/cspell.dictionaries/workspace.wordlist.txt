@@ -4,6 +4,7 @@ sdiff
 uudiff
 
 debuginfo
+tabsize
 
 # *** the following part is a copy of coreutils ***
 # * cargo

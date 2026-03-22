@@ -3,7 +3,7 @@
 // For the full copyright and license information, please view the LICENSE-*
 // files that was distributed with this source code.
 
-// spell-checker:ignore áéíóú endiand mcel rxyz tabsize
+// spell-checker:ignore áéíóú endiand mcel rxyz
 
 use core::cmp::{max, min};
 use diff_crate::Result;

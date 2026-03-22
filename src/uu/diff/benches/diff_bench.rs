@@ -23,18 +23,37 @@ use std::{path::Path, sync::OnceLock};
 use tempfile::TempDir;
 use uudiff::benchmark::{
     // bench_binary,
-    prepare_bench::{generate_test_files_bytes, BenchContext},
+    prepare_bench::{BenchContext, generate_test_files_bytes},
     str_to_args,
 };
 
 // bench the time it takes to parse the command line arguments
 #[divan::bench]
-fn diff_parser(bencher: Bencher) {
+fn diff_parser_old(bencher: Bencher) {
     let cmd = "diff file_1.txt file_2.txt -s --brief --expand-tabs --width=100";
     let args = str_to_args(&cmd).into_iter().peekable();
     bencher
         .with_inputs(|| args.clone())
         .bench_values(|data| uu_diff::params::parse_params(data));
+}
+
+// bench the time it takes to parse the command line arguments
+#[divan::bench(sample_size = 100)]
+fn diff_parser_clap(bencher: Bencher) {
+    let cmd = "diff file_1.txt file_2.txt -s --brief --expand-tabs --width=100";
+    let args_prep = str_to_args(&cmd).into_iter().peekable();
+    bencher
+        .with_inputs(|| args_prep.clone())
+        .bench_values(|args| {
+            let args = uu_diff::clap_preparation(args);
+            let matches = uudiff::clap_localization::handle_clap_result_with_exit_code(
+                uu_diff::uu_app(),
+                args,
+                2,
+            )
+            .unwrap();
+            let _params: uu_diff::parser_diff::Params = matches.try_into().unwrap();
+        });
 }
 
 // bench the actual compare
@@ -60,7 +79,7 @@ fn cmd_diff_gnu_equal(bencher: Bencher, kb: u64) {
     bencher
         // .with_inputs(|| prepare::cmp_params_identical_testfiles(lines))
         .with_inputs(|| args_str.clone())
-        .bench_refs(|cmd_args| bench_binary::bench_binary("diff", cmd_args));
+        .bench_refs(|cmd_args| uudiff::benchmark::bench_binary::bench_binary("diff", cmd_args));
 }
 
 // bench the compiled release version
@@ -79,7 +98,7 @@ fn cmd_diff_release_equal(bencher: Bencher, kb: u64) {
     bencher
         // .with_inputs(|| prepare::cmp_params_identical_testfiles(lines))
         .with_inputs(|| args_str.clone())
-        .bench_refs(|cmd_args| bench_binary::bench_binary(&prg, cmd_args));
+        .bench_refs(|cmd_args| uudiff::benchmark::bench_binary::bench_binary(&prg, cmd_args));
 }
 
 // Since each bench function is separate in Divan it is more difficult to dynamically create test data.

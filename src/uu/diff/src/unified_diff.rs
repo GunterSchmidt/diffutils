@@ -3,7 +3,7 @@
 // For the full copyright and license information, please view the LICENSE-*
 // files that was distributed with this source code.
 
-// spell-checker:ignore alef alefn alefr alefx betn betr betx nodiff tabsize
+// spell-checker:ignore alef alefn alefr alefx betn betr betx nodiff
 
 use std::collections::VecDeque;
 use std::io::Write;
@@ -253,7 +253,7 @@ pub fn diff(expected: &[u8], actual: &[u8], params: &Params) -> Vec<u8> {
         to_modified_time
     )
     .into_bytes();
-    let diff_results = make_diff(expected, actual, params.n_context_lines, params.brief);
+    let diff_results = make_diff(expected, actual, params.n_output_lines, params.brief);
     if diff_results.is_empty() {
         return Vec::new();
     }
@@ -467,7 +467,7 @@ mod tests {
                                     &Params {
                                         from: "a/alef".into(),
                                         to: (&format!("{target}/alef")).into(),
-                                        n_context_lines: 2,
+                                        n_output_lines: 2,
                                         ..Default::default()
                                     },
                                 );
@@ -588,7 +588,7 @@ mod tests {
                                         &Params {
                                             from: "a/alefn".into(),
                                             to: (&format!("{target}/alefn")).into(),
-                                            n_context_lines: 2,
+                                            n_output_lines: 2,
                                             ..Default::default()
                                         },
                                     );
@@ -689,7 +689,7 @@ mod tests {
                                         &Params {
                                             from: "a/alef_".into(),
                                             to: (&format!("{target}/alef_")).into(),
-                                            n_context_lines: 2,
+                                            n_output_lines: 2,
                                             ..Default::default()
                                         },
                                     );
@@ -775,7 +775,7 @@ mod tests {
                                     &Params {
                                         from: "a/alefx".into(),
                                         to: (&format!("{target}/alefx")).into(),
-                                        n_context_lines: 2,
+                                        n_output_lines: 2,
                                         ..Default::default()
                                     },
                                 );
@@ -866,7 +866,7 @@ mod tests {
                                     &Params {
                                         from: "a/alefr".into(),
                                         to: (&format!("{target}/alefr")).into(),
-                                        n_context_lines: 2,
+                                        n_output_lines: 2,
                                         ..Default::default()
                                     },
                                 );

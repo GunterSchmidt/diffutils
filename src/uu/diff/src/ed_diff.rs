@@ -3,7 +3,7 @@
 // For the full copyright and license information, please view the LICENSE-*
 // files that was distributed with this source code.
 
-// spell-checker:ignore alef alefr betr nodiff tabsize
+// spell-checker:ignore alef alefr betr nodiff
 
 use std::io::Write;
 

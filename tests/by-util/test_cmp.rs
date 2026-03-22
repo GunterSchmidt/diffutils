@@ -718,6 +718,17 @@ mod parser {
     }
 
     #[test]
+    fn test_parser_incompatible_quiet_and_verbose() {
+        new_ucmd!()
+            .arg("--quiet")
+            .arg("--verbose")
+            .arg("lorem_ipsum.txt")
+            .arg("lorem_ipsum_diff.txt")
+            .fails_with_code(2)
+            .stderr_contains("cmp: options --verbose and --silent are incompatible");
+    }
+
+    #[test]
     // This is not a GNU error, but should be
     fn test_parser_incompatible_silent_and_print_bytes() {
         new_ucmd!()
