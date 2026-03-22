@@ -23,7 +23,6 @@ path = "src/bin/diffutils.rs"
 
 [features]
 default = ["feat_common_core"]
-# default = ["feat_common_core", "feat_test_clap_limitations"]
 ## OS feature shortcodes
 macos = ["feat_os_macos"]
 unix = ["feat_os_unix"]
@@ -64,8 +63,6 @@ feat_os_windows = [
 feat_common_core = [
   "cmp", "diff"
 ]
-
-feat_test_clap_limitations = []
 
 [workspace]
 resolver = "3"

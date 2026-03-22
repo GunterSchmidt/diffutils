@@ -62,5 +62,34 @@
       ],
       "cwd": "${workspaceFolder}"
     },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug 'diff'",
+      "cargo": {
+        "args": [
+          "build",
+          "--bin=diff",
+          "--package=uu_diff"
+        ],
+        "filter": {
+          "name": "diff",
+          "kind": "bin"
+        }
+      },
+      "args": [
+        "-c2",
+        // "--context=",
+        // "src",
+        "lorem_ipsum.txt",
+        "lorem_ipsum_diff.txt"
+        // "1ZiB"
+        // "99999999999999999999999999999999999999999999999999999999999"
+        // "-bl",
+        // "-n10M",
+        // "--ignore-initial=100KiB:1MiB",
+      ],
+      "cwd": "${workspaceFolder}"
+    },
   ]
 }
