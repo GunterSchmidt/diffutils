@@ -6,7 +6,7 @@
 
 // spell-checker:ignore ijkl ndefg
 
-use ::cmp::parser_cmp::{Params, SkipU64, uu_app};
+use ::cmp::params_cmp::{Params, SkipU64, uu_app};
 use assert_cmd::cargo::cargo_bin_cmd;
 use predicates::prelude::predicate;
 use std::{ffi::OsString, fs::File, fs::OpenOptions, io::Write};
