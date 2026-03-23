@@ -13,8 +13,8 @@ use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::{cmp, fs, io};
 
 use clap::Command;
-use uudiff::error::{UError, UResult, strip_errno};
-use uudiff::translate;
+use uudiff::diffutils_error::DiffUtilsError;
+use uudiff::error::{FromIo, UError, UResult};
 use uudiff::utils::{self, CompareOk};
 
 use crate::parser_cmp::{BytesLimitU64, Params, SkipU64};
@@ -27,8 +27,6 @@ use std::os::unix::fs::MetadataExt;
 pub fn uumain(args: impl uucore::Args) -> UResult<()> {
     let matches = uudiff::clap_localization::handle_clap_result_with_exit_code(uu_app(), args, 2)?;
     // dbg!(&matches);
-    // let x = execution_phrase();
-    // dbg!(x);
 
     let params: Params = matches.try_into()?;
 
@@ -43,35 +41,39 @@ pub fn uumain(args: impl uucore::Args) -> UResult<()> {
                 uucore::error::set_exit_code(2);
                 return Ok(());
             }
-            return Err(Box::new(e));
-            // uucore::error::set_exit_code(2);
-            // panic!("error cmp_compare: {e}");
+            return Err(e);
         }
     }
 
     Ok(())
 }
 
-pub fn cmp_compare(params: &Params) -> Result<CompareOk, CmpError> {
+pub fn cmp_compare(params: &Params) -> Result<CompareOk, Box<dyn UError>> {
     // check if file is actually a directory, which is not allowed
     if params.from != "-" {
         match fs::metadata(&params.from) {
             Ok(m) => {
                 if m.is_dir() {
-                    return Err(CmpError::DirectoryNotAllowed(params.from.clone()));
+                    return Err(DiffUtilsError::DirectoryNotAllowed(params.from.clone()).into());
                 }
             }
-            Err(e) => return Err(CmpError::FileIo(params.from.clone(), e)),
+            Err(e) => {
+                let io = e.map_err_context(|| params.from_as_string_lossy());
+                return Err(DiffUtilsError::Io(io).into());
+            }
         }
     }
     if params.to != "-" {
         match fs::metadata(&params.to) {
             Ok(m) => {
                 if m.is_dir() {
-                    return Err(CmpError::DirectoryNotAllowed(params.to.clone()));
+                    return Err(DiffUtilsError::DirectoryNotAllowed(params.to.clone()).into());
                 }
             }
-            Err(e) => return Err(CmpError::FileIo(params.to.clone(), e)),
+            Err(e) => {
+                let io = e.map_err_context(|| params.to_as_string_lossy());
+                return Err(DiffUtilsError::Io(io).into());
+            }
         }
     }
     // check is same file and has no shift by skipping bytes
@@ -118,14 +120,16 @@ pub fn cmp_compare(params: &Params) -> Result<CompareOk, CmpError> {
         let from_buf = match from.fill_buf() {
             Ok(buf) => buf,
             Err(e) => {
-                return Err(CmpError::FileReadError(params.from.clone(), e));
+                let io = e.map_err_context(|| params.from_as_string_lossy());
+                return Err(DiffUtilsError::Io(io).into());
             }
         };
 
         let to_buf = match to.fill_buf() {
             Ok(buf) => buf,
             Err(e) => {
-                return Err(CmpError::FileReadError(params.to.clone(), e));
+                let io = e.map_err_context(|| params.to_as_string_lossy());
+                return Err(DiffUtilsError::Io(io).into());
             }
         };
 
@@ -184,6 +188,7 @@ pub fn cmp_compare(params: &Params) -> Result<CompareOk, CmpError> {
                         &mut output,
                         params,
                     );
+                    // TODO test error returns exit code 2
                     stdout.write_all(output.as_slice())?;
                     // if let Err(e) = stdout.write_all(output.as_slice())
                     // // .map_err(|e| format!("{}: error printing output: {e}", uucore::util_name()))
@@ -222,16 +227,15 @@ pub fn cmp_compare(params: &Params) -> Result<CompareOk, CmpError> {
 fn prepare_reader(
     path: &OsString,
     ignore_initial: Option<SkipU64>,
-) -> Result<Box<dyn BufRead>, CmpError> {
+) -> Result<Box<dyn BufRead>, DiffUtilsError> {
     let mut reader: Box<dyn BufRead> = if path == "-" {
         Box::new(BufReader::new(io::stdin()))
     } else {
-        // TODO use UIoError
-        // Centralize error message DiffUtilError (DiffError and CmpErrors?)
         match fs::File::open(path) {
             Ok(file) => Box::new(BufReader::new(file)),
             Err(e) => {
-                return Err(CmpError::FileReadError(path.clone(), e));
+                let io = e.map_err_context(|| path.to_string_lossy().to_string());
+                return Err(DiffUtilsError::Io(io));
             }
         }
     };
@@ -239,7 +243,8 @@ fn prepare_reader(
     #[allow(clippy::collapsible_if)]
     if let Some(skip) = ignore_initial {
         if let Err(e) = io::copy(&mut reader.by_ref().take(skip), &mut io::sink()) {
-            return Err(CmpError::FileReadError(path.clone(), e));
+            let io = e.map_err_context(|| path.to_string_lossy().to_string());
+            return Err(DiffUtilsError::Io(io));
         }
     }
 
@@ -498,78 +503,69 @@ fn write_visible_byte_padded(output: &mut Vec<u8>, byte: u8) {
     output.extend_from_slice(&SPACES[..padding]);
 }
 
-/// Contains all cmp errors and their text messages.
-///
-/// All errors can be output easily using the normal Display functionality.
-/// To format the error message for the typical diffutils output, use [format_error_text].
-#[derive(Debug)]
-pub enum CmpError {
-    /// cmp does not handle directories
-    ///
-    /// Param: wrong operand (dir name)
-    DirectoryNotAllowed(OsString),
-
-    /// File Read IO error
-    ///
-    /// Param: filepath, io error
-    FileReadError(OsString, io::Error),
-
-    /// Generic IO error
-    FileIo(OsString, io::Error),
-
-    /// Generic IO error, here only Output errors
-    GenericIo(io::Error),
-}
-
-impl std::error::Error for CmpError {}
-
-impl UError for CmpError {
-    fn code(&self) -> i32 {
-        2
-    }
-
-    fn usage(&self) -> bool {
-        // dbg!("CmpError: running usage");
-        // match self {
-        //     CmpError::DirectoryNotAllowed(os_string) => todo!(),
-        //     CmpError::FileReadError(os_string, error) => todo!(),
-        //     CmpError::FileIo(os_string, error) => todo!(),
-        //     CmpError::GenericIo(error) => todo!(),
-        // }
-        false
-    }
-}
-
-impl From<std::io::Error> for CmpError {
-    fn from(e: std::io::Error) -> Self {
-        Self::GenericIo(e)
-    }
-}
-
-impl std::fmt::Display for CmpError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let msg = match self {
-            // Self::DirectoryNotAllowed(dir) => write!(f, "'{}': is a directory", dir.to_string_lossy()),
-            Self::DirectoryNotAllowed(dir) => {
-                translate!("cmp-error-is-directory", "name" => dir.to_string_lossy())
-            }
-            Self::FileReadError(path, error) => {
-                utils::format_failure_to_read_input_file(path, error)
-            }
-            Self::FileIo(path, e) => format!("{}: {}", path.to_string_lossy(), strip_errno(e)),
-            // very unlikely, not translated
-            Self::GenericIo(e) => {
-                format!(
-                    "error printing to output: {} ({})",
-                    strip_errno(e),
-                    e.kind()
-                )
-            }
-        };
-
-        write!(f, "{msg}")
-    }
-}
+// /// Contains all cmp errors and their text messages.
+// ///
+// /// All errors can be output easily using the normal Display functionality.
+// /// To format the error message for the typical diffutils output, use [format_error_text].
+// #[derive(Debug)]
+// pub enum CmpError {
+//     /// File Read IO error
+//     ///
+//     /// Param: filepath, io error
+//     FileReadError(OsString, io::Error),
+//
+//     /// Generic IO error
+//     FileIo(OsString, io::Error),
+//
+//     /// Generic IO error, here only Output errors
+//     GenericIo(io::Error),
+// }
+//
+// impl std::error::Error for CmpError {}
+//
+// impl UError for CmpError {
+//     fn code(&self) -> i32 {
+//         2
+//     }
+//
+//     fn usage(&self) -> bool {
+//         // dbg!("CmpError: running usage");
+//         // match self {
+//         //     CmpError::DirectoryNotAllowed(os_string) => todo!(),
+//         //     CmpError::FileReadError(os_string, error) => todo!(),
+//         //     CmpError::FileIo(os_string, error) => todo!(),
+//         //     CmpError::GenericIo(error) => todo!(),
+//         // }
+//         false
+//     }
+// }
+//
+// impl From<std::io::Error> for CmpError {
+//     fn from(e: std::io::Error) -> Self {
+//         Self::GenericIo(e)
+//     }
+// }
+//
+// impl std::fmt::Display for CmpError {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         let msg = match self {
+//             Self::FileReadError(path, error) => {
+//                 utils::format_failure_to_read_input_file(path, error)
+//             }
+//             Self::FileIo(path, e) => format!("{}: {}", path.to_string_lossy(), strip_errno(e)),
+//             // very unlikely, not translated
+//             Self::GenericIo(e) => {
+//                 format!(
+//                     "error printing to output: {} ({})",
+//                     strip_errno(e),
+//                     e.kind()
+//                 )
+//             }
+//         };
+//
+//         write!(f, "{msg}")
+//     }
+// }
 
 // Required for build.rs
 pub fn uu_app() -> Command {

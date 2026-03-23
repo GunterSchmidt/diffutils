@@ -1,7 +1,4 @@
-# Error messages NumberUnitParser
-num-parser-error-invalid-number = invalid number '{ $input }'
-num-parser-error-invalid-unit = invalid byte unit '{ $unit }'
-num-parser-error-number-overflow = number too large (overflow) '{ $input }'
+# Error messages specific to DiffUtils
 
 # *** This is a copy from coreutils ***
 # Chaînes communes partagées entre toutes les commandes uutils

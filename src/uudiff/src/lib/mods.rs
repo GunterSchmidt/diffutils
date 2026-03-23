@@ -3,3 +3,4 @@ pub mod clap_localization;
 pub mod error;
 pub mod locale;
 pub mod utils;
+pub mod diffutils_error;

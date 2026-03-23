@@ -7,6 +7,7 @@ pub use crate::mods::utils;
 
 // * cross-platform modules
 pub use crate::mods::clap_localization;
+pub use crate::mods::diffutils_error;
 pub use crate::mods::error;
 pub use crate::mods::locale;
 

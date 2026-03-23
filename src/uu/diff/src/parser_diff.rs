@@ -331,6 +331,14 @@ impl Default for Params {
 }
 
 impl Params {
+    pub fn from_as_string_lossy(&self) -> String {
+        self.from.to_string_lossy().to_string()
+    }
+
+    pub fn to_as_string_lossy(&self) -> String {
+        self.to.to_string_lossy().to_string()
+    }
+
     //     /// Sets the --bytes limit and returns the input as number.
     //     ///
     //     /// bytes - unparsed number string, e.g. '50KiB'

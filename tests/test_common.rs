@@ -59,7 +59,7 @@ mod common {
         let error_message = "The system cannot find the file specified.";
 
         for sub_cmd in ["diff", "cmp"] {
-            dbg!(&sub_cmd, &no_path.as_os_str().to_string_lossy());
+            // dbg!(&sub_cmd, &no_path.as_os_str().to_string_lossy());
             let mut cmd = cargo_bin_cmd!("diffutils");
             cmd.arg(sub_cmd);
             cmd.arg(&no_path).arg(file.path());

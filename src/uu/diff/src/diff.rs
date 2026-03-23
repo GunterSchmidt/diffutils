@@ -16,7 +16,8 @@ use clap::Command;
 use std::ffi::OsString;
 use std::io::{Read, Write, stdout};
 use std::{fs, io};
-use uudiff::error::{FromIo, UError, UResult};
+use uudiff::diffutils_error::DiffUtilsError;
+use uudiff::error::{FromIo, UResult};
 
 // Exit codes are documented at
 // https://www.gnu.org/software/diffutils/manual/html_node/Invoking-diff.html.
@@ -61,11 +62,11 @@ pub fn uumain(args: impl uucore::Args) -> UResult<()> {
     Ok(())
 }
 
-pub fn clap_preparation(mut args: impl uucore::Args) -> Vec<OsString> {
+pub fn clap_preparation(args: impl uucore::Args) -> Vec<OsString> {
     // handle constellations, clap can't do
     // so clap is limited to -c=num, while GNU allows -c42 and -42c (and 4c2)
     let mut args_checked = Vec::new();
-    while let Some(mut arg_os) = args.next() {
+    for mut arg_os in args {
         if arg_os.len() > 2 {
             let arg = arg_os.to_string_lossy();
             if arg.as_bytes()[0] == b'-' {
@@ -108,7 +109,6 @@ pub fn clap_preparation(mut args: impl uucore::Args) -> Vec<OsString> {
     args_checked
 }
 
-// TODO split parser and logic
 pub fn diff_compare(params: &Params) -> UResult<()> {
     // if from and to are the same file, no need to perform any comparison
     let maybe_report_identical_files = || {
@@ -142,23 +142,32 @@ pub fn diff_compare(params: &Params) -> UResult<()> {
     // UIoError has no code https://github.com/uutils/coreutils/issues/11453
     let r_from_content =
         // read_file_contents(&params.from).map_err(|e| UIoError::new_code(e, params.from.quote().to_string(), 2))?;
-        read_file_contents(&params.from).map_err_context(|| params.from.to_string_lossy().to_string());
+        read_file_contents(&params.from);
     // read_file_contents(&params.from);
     // read_file_contents(&params.from).map_err(|e| {let mut io = UIoError::from(e); io.context =Some(params.from.to_string_lossy().to_string()); DiffError::Io(io)});
-    let r_to_content =
-        read_file_contents(&params.to).map_err_context(|| params.to.to_string_lossy().to_string());
+    let r_to_content = read_file_contents(&params.to);
 
     // Diff returns both errors
     let from_content = match r_from_content {
         Ok(c) => c,
         Err(e1) => match r_to_content {
-            Ok(_) => return Err(DiffError::Io(e1).into()),
-            Err(e2) => return Err(DiffError::IoDouble(e1, e2).into()),
+            Ok(_) => {
+                let io = e1.map_err_context(|| params.from_as_string_lossy());
+                return Err(DiffUtilsError::Io(io).into());
+            }
+            Err(e2) => {
+                let io1 = e1.map_err_context(|| params.from_as_string_lossy());
+                let io2 = e2.map_err_context(|| params.to_as_string_lossy());
+                return Err(DiffUtilsError::IoDouble(io1, io2).into());
+            }
         },
     };
     let to_content = match r_to_content {
         Ok(c) => c,
-        Err(e2) => return Err(DiffError::Io(e2).into()),
+        Err(e2) => {
+            let io = e2.map_err_context(|| params.to_as_string_lossy());
+            return Err(DiffUtilsError::Io(io).into());
+        }
     };
 
     // run diff
@@ -185,7 +194,7 @@ pub fn diff_compare(params: &Params) -> UResult<()> {
     } else {
         let result = io::stdout().write_all(&result);
         match result {
-            // This code is taken from coreutils.
+            // This code is adapted from coreutils.
             // <https://github.com/uutils/coreutils/blob/main/src/uu/seq/src/seq.rs>
             Ok(()) => {}
             Err(err) if err.kind() == std::io::ErrorKind::BrokenPipe => {
@@ -195,12 +204,12 @@ pub fn diff_compare(params: &Params) -> UResult<()> {
                 uucore::show_error!("{err}");
                 #[cfg(unix)]
                 if uucore::signals::sigpipe_was_ignored() {
-                    uucore::error::set_exit_code(1);
+                    uucore::error::set_exit_code(0);
                 }
             }
             Err(error) => {
                 eprintln!("{}", uucore::error::strip_errno(&error));
-                uucore::error::set_exit_code(1);
+                uucore::error::set_exit_code(2);
                 return Ok(());
             }
         }
@@ -216,78 +225,78 @@ pub fn diff_compare(params: &Params) -> UResult<()> {
     Ok(())
 }
 
-/// Contains all cmp errors and their text messages.
-///
-/// All errors can be output easily using the normal Display functionality.
-/// To format the error message for the typical diffutils output, use [format_error_text].
-#[derive(Debug)]
-pub enum DiffError {
-    //     /// cmp does not handle directories
-    //     ///
-    //     /// Param: wrong operand (dir name)
-    //     DirectoryNotAllowed(OsString),
-    //
-    //     /// File Read IO error
-    //     ///
-    //     /// Param: filepath, io error
-    //     FileReadError(OsString, io::Error),
-    //
-    //     /// Generic IO error
-    //     FileIo(OsString, io::Error),
-    /// Generic IO error, here only Output errors
-    Io(Box<dyn UError>),
-    IoDouble(Box<dyn UError>, Box<dyn UError>),
-}
-
-impl std::error::Error for DiffError {}
-
-impl uudiff::error::UError for DiffError {
-    fn code(&self) -> i32 {
-        2
-    }
-
-    // fn usage(&self) -> bool {
-    //     // dbg!("CmpError: running usage");
-    //     // match self {
-    //     //     CmpError::DirectoryNotAllowed(os_string) => todo!(),
-    //     //     CmpError::FileReadError(os_string, error) => todo!(),
-    //     //     CmpError::FileIo(os_string, error) => todo!(),
-    //     //     CmpError::GenericIo(error) => todo!(),
-    //     // }
-    //     false
-    // }
-}
-
-impl From<std::io::Error> for DiffError {
-    fn from(e: std::io::Error) -> Self {
-        Self::Io(e.into())
-    }
-}
-
-impl std::fmt::Display for DiffError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let msg = match self {
-            // Self::DirectoryNotAllowed(dir) => write!(f, "'{}': is a directory", dir.to_string_lossy()),
-            // Self::DirectoryNotAllowed(dir) => {
-            //     translate!("cmp-error-is-directory", "name" => dir.to_string_lossy())
-            // }
-            // Self::FileReadError(path, error) => {
-            //     utils::format_failure_to_read_input_file(path, error)
-            // }
-            // Self::FileIo(path, e) => format!("{}: {}", path.to_string_lossy(), strip_errno(e)),
-            // very unlikely, not translated
-            Self::Io(e) => {
-                // dbg!("Io");
-                return e.fmt(f);
-            }
-            Self::IoDouble(e1, e2) => {
-                format!("{e1}\n{}: {e2}", uucore::util_name())
-            }
-        };
-
-        write!(f, "{msg}")
-    }
-}
+// /// Contains all cmp errors and their text messages.
+// ///
+// /// All errors can be output easily using the normal Display functionality.
+// /// To format the error message for the typical diffutils output, use [format_error_text].
+// #[derive(Debug)]
+// pub enum DiffError {
+//     //     /// cmp does not handle directories
+//     //     ///
+//     //     /// Param: wrong operand (dir name)
+//     //     DirectoryNotAllowed(OsString),
+//     //
+//     //     /// File Read IO error
+//     //     ///
+//     //     /// Param: filepath, io error
+//     //     FileReadError(OsString, io::Error),
+//     //
+//     //     /// Generic IO error
+//     //     FileIo(OsString, io::Error),
+//     /// Generic IO error, here only Output errors
+//     Io(Box<dyn UError>),
+//     IoDouble(Box<dyn UError>, Box<dyn UError>),
+// }
+//
+// impl std::error::Error for DiffError {}
+//
+// impl uudiff::error::UError for DiffError {
+//     fn code(&self) -> i32 {
+//         2
+//     }
+//
+//     // fn usage(&self) -> bool {
+//     //     // dbg!("CmpError: running usage");
+//     //     // match self {
+//     //     //     CmpError::DirectoryNotAllowed(os_string) => todo!(),
+//     //     //     CmpError::FileReadError(os_string, error) => todo!(),
+//     //     //     CmpError::FileIo(os_string, error) => todo!(),
+//     //     //     CmpError::GenericIo(error) => todo!(),
+//     //     // }
+//     //     false
+//     // }
+// }
+//
+// impl From<std::io::Error> for DiffError {
+//     fn from(e: std::io::Error) -> Self {
+//         Self::Io(e.into())
+//     }
+// }
+//
+// impl std::fmt::Display for DiffError {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         let msg = match self {
+//             // Self::DirectoryNotAllowed(dir) => write!(f, "'{}': is a directory", dir.to_string_lossy()),
+//             // Self::DirectoryNotAllowed(dir) => {
+//             //     translate!("cmp-error-is-directory", "name" => dir.to_string_lossy())
+//             // }
+//             // Self::FileReadError(path, error) => {
+//             //     utils::format_failure_to_read_input_file(path, error)
+//             // }
+//             // Self::FileIo(path, e) => format!("{}: {}", path.to_string_lossy(), strip_errno(e)),
+//             // very unlikely, not translated
+//             Self::Io(e) => {
+//                 // dbg!("Io");
+//                 return e.fmt(f);
+//             }
+//             Self::IoDouble(e1, e2) => {
+//                 format!("{e1}\n{}: {e2}", uucore::util_name())
+//             }
+//         };
+//
+//         write!(f, "{msg}")
+//     }
+// }
 
 // Required for build.rs
 pub fn uu_app() -> Command {

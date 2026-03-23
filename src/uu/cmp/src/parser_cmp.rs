@@ -87,6 +87,14 @@ pub struct Params {
 }
 
 impl Params {
+    pub fn from_as_string_lossy(&self) -> String {
+        self.from.to_string_lossy().to_string()
+    }
+
+    pub fn to_as_string_lossy(&self) -> String {
+        self.to.to_string_lossy().to_string()
+    }
+
     /// Sets the --bytes limit and returns the input as number.
     ///
     /// bytes - unparsed number string, e.g. '50KiB'
@@ -336,7 +344,7 @@ impl UError for ParseCmpError {
     }
 
     fn usage(&self) -> bool {
-        // TODO should not returns full path on try --help message
+        // TODO should not return full path on try --help message
         // Try '/home/gunnar/SynologyDrive/Development/diffutils_fork/target/debug/cmp --help' for more information.
         true
     }

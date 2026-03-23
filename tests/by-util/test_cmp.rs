@@ -139,7 +139,7 @@ mod cmp {
 
         ucmd.arg("a_dir")
             .fails_with_code(2)
-            .stderr_is("cmp: 'a_dir' is a directory\n");
+            .stderr_is("cmp: a_dir: Is a directory\n");
     }
 
     #[test]
