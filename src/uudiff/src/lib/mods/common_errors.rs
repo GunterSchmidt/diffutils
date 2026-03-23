@@ -10,6 +10,17 @@ use std::ffi::OsString;
 use crate::{error::UError, translate};
 
 /// Contains common Core/DiffUtils errors and their text messages.
+///
+/// Returns exit code 2, if a different exit code is required,
+/// use [UtilsErrorCode]
+///
+/// A typical way to return an std::io:Error as
+/// Box<dyn UError> (from [crate::error::UResult]) is:
+/// Err => {
+///     let io = error.map_err_context(|| path.to_string_lossy().to_string());
+///     return Err(UtilsError::Io(io).into());
+/// }
+// Clone and PartialEq cannot be derived for Box<dyn Error>.
 #[derive(Debug)]
 pub enum UtilsError {
     /// When a util does not handle directories (e.g. cmp).
@@ -52,5 +63,39 @@ impl std::fmt::Display for UtilsError {
         };
 
         write!(f, "{msg}")
+    }
+}
+
+/// Like [UtilsError] with the option to specify the exit code.
+///
+/// A typical way to return an std::io:Error as
+/// Box<dyn UError> (from [crate::error::UResult]) is:
+/// Err => {
+///     let io = error.map_err_context(|| path.to_string_lossy().to_string());
+///     return Err(UtilsErrorCode::new(UtilsError::Io(io), 4).into());
+/// }
+#[derive(Debug)]
+pub struct UtilsErrorCode {
+    pub utils_error: UtilsError,
+    pub code: i32,
+}
+
+impl UtilsErrorCode {
+    pub fn new(utils_error: UtilsError, code: i32) -> Self {
+        Self { utils_error, code }
+    }
+}
+
+impl std::error::Error for UtilsErrorCode {}
+
+impl UError for UtilsErrorCode {
+    fn code(&self) -> i32 {
+        self.code
+    }
+}
+
+impl std::fmt::Display for UtilsErrorCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.utils_error.fmt(f)
     }
 }
