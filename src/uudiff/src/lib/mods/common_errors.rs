@@ -9,9 +9,9 @@ use std::ffi::OsString;
 
 use crate::{error::UError, translate};
 
-/// Contains common DiffUtils errors and their text messages.
+/// Contains common Core/DiffUtils errors and their text messages.
 #[derive(Debug)]
-pub enum DiffUtilsError {
+pub enum UtilsError {
     /// When a util does not handle directories (e.g. cmp).
     ///
     /// Param: wrong operand (dir name)
@@ -22,21 +22,21 @@ pub enum DiffUtilsError {
     IoDouble(Box<dyn UError>, Box<dyn UError>),
 }
 
-impl std::error::Error for DiffUtilsError {}
+impl std::error::Error for UtilsError {}
 
-impl UError for DiffUtilsError {
+impl UError for UtilsError {
     fn code(&self) -> i32 {
         2
     }
 }
 
-impl From<std::io::Error> for DiffUtilsError {
+impl From<std::io::Error> for UtilsError {
     fn from(e: std::io::Error) -> Self {
         Self::Io(e.into())
     }
 }
 
-impl std::fmt::Display for DiffUtilsError {
+impl std::fmt::Display for UtilsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let msg = match self {
             Self::DirectoryNotAllowed(dir) => {

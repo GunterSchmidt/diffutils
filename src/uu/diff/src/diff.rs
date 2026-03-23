@@ -16,7 +16,7 @@ use clap::Command;
 use std::ffi::OsString;
 use std::io::{Read, Write, stdout};
 use std::{fs, io};
-use uudiff::diffutils_error::DiffUtilsError;
+use uudiff::common_errors::UtilsError;
 use uudiff::error::{FromIo, UResult};
 
 // Exit codes are documented at
@@ -153,12 +153,12 @@ pub fn diff_compare(params: &Params) -> UResult<()> {
         Err(e1) => match r_to_content {
             Ok(_) => {
                 let io = e1.map_err_context(|| params.from_as_string_lossy());
-                return Err(DiffUtilsError::Io(io).into());
+                return Err(UtilsError::Io(io).into());
             }
             Err(e2) => {
                 let io1 = e1.map_err_context(|| params.from_as_string_lossy());
                 let io2 = e2.map_err_context(|| params.to_as_string_lossy());
-                return Err(DiffUtilsError::IoDouble(io1, io2).into());
+                return Err(UtilsError::IoDouble(io1, io2).into());
             }
         },
     };
@@ -166,7 +166,7 @@ pub fn diff_compare(params: &Params) -> UResult<()> {
         Ok(c) => c,
         Err(e2) => {
             let io = e2.map_err_context(|| params.to_as_string_lossy());
-            return Err(DiffUtilsError::Io(io).into());
+            return Err(UtilsError::Io(io).into());
         }
     };
 

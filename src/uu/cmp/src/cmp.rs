@@ -13,8 +13,8 @@ use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::{cmp, fs, io};
 
 use clap::Command;
-use uudiff::diffutils_error::DiffUtilsError;
-use uudiff::error::{FromIo, UError, UResult};
+use uudiff::common_errors::UtilsError;
+use uudiff::error::{FromIo, UResult};
 use uudiff::utils::{self, CompareOk};
 
 use crate::parser_cmp::{BytesLimitU64, Params, SkipU64};
@@ -48,18 +48,18 @@ pub fn uumain(args: impl uucore::Args) -> UResult<()> {
     Ok(())
 }
 
-pub fn cmp_compare(params: &Params) -> Result<CompareOk, Box<dyn UError>> {
+pub fn cmp_compare(params: &Params) -> UResult<CompareOk> {
     // check if file is actually a directory, which is not allowed
     if params.from != "-" {
         match fs::metadata(&params.from) {
             Ok(m) => {
                 if m.is_dir() {
-                    return Err(DiffUtilsError::DirectoryNotAllowed(params.from.clone()).into());
+                    return Err(UtilsError::DirectoryNotAllowed(params.from.clone()).into());
                 }
             }
             Err(e) => {
                 let io = e.map_err_context(|| params.from_as_string_lossy());
-                return Err(DiffUtilsError::Io(io).into());
+                return Err(UtilsError::Io(io).into());
             }
         }
     }
@@ -67,12 +67,12 @@ pub fn cmp_compare(params: &Params) -> Result<CompareOk, Box<dyn UError>> {
         match fs::metadata(&params.to) {
             Ok(m) => {
                 if m.is_dir() {
-                    return Err(DiffUtilsError::DirectoryNotAllowed(params.to.clone()).into());
+                    return Err(UtilsError::DirectoryNotAllowed(params.to.clone()).into());
                 }
             }
             Err(e) => {
                 let io = e.map_err_context(|| params.to_as_string_lossy());
-                return Err(DiffUtilsError::Io(io).into());
+                return Err(UtilsError::Io(io).into());
             }
         }
     }
@@ -121,7 +121,7 @@ pub fn cmp_compare(params: &Params) -> Result<CompareOk, Box<dyn UError>> {
             Ok(buf) => buf,
             Err(e) => {
                 let io = e.map_err_context(|| params.from_as_string_lossy());
-                return Err(DiffUtilsError::Io(io).into());
+                return Err(UtilsError::Io(io).into());
             }
         };
 
@@ -129,7 +129,7 @@ pub fn cmp_compare(params: &Params) -> Result<CompareOk, Box<dyn UError>> {
             Ok(buf) => buf,
             Err(e) => {
                 let io = e.map_err_context(|| params.to_as_string_lossy());
-                return Err(DiffUtilsError::Io(io).into());
+                return Err(UtilsError::Io(io).into());
             }
         };
 
@@ -227,7 +227,7 @@ pub fn cmp_compare(params: &Params) -> Result<CompareOk, Box<dyn UError>> {
 fn prepare_reader(
     path: &OsString,
     ignore_initial: Option<SkipU64>,
-) -> Result<Box<dyn BufRead>, DiffUtilsError> {
+) -> Result<Box<dyn BufRead>, UtilsError> {
     let mut reader: Box<dyn BufRead> = if path == "-" {
         Box::new(BufReader::new(io::stdin()))
     } else {
@@ -235,7 +235,7 @@ fn prepare_reader(
             Ok(file) => Box::new(BufReader::new(file)),
             Err(e) => {
                 let io = e.map_err_context(|| path.to_string_lossy().to_string());
-                return Err(DiffUtilsError::Io(io));
+                return Err(UtilsError::Io(io));
             }
         }
     };
@@ -244,7 +244,7 @@ fn prepare_reader(
     if let Some(skip) = ignore_initial {
         if let Err(e) = io::copy(&mut reader.by_ref().take(skip), &mut io::sink()) {
             let io = e.map_err_context(|| path.to_string_lossy().to_string());
-            return Err(DiffUtilsError::Io(io));
+            return Err(UtilsError::Io(io));
         }
     }
 
