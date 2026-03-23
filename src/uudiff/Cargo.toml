@@ -25,7 +25,9 @@ path = "src/lib/lib.rs"
 [features]
 # TODO How are features centralized in this workspace file?
 # instead of limiting to KiB, MiB, etc, one can write kib, mib, Mb or whatever case.
-feat_allow_case_insensitive_number_units = []
+# TODO feat_allow_case_insensitive_number_units = []
+
+
 
 [dependencies]
 bytecount.workspace = true

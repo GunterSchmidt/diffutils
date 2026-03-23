@@ -379,7 +379,7 @@ mod parser {
     fn context_invalid() {
         for arg in [
             "-c 42",
-            // TODO "-c=42", works here
+            // TODO allowed? "-c=42", works here
             // "-c=", works here, default
             "-C",
             // "-C=42", works here
@@ -394,7 +394,7 @@ mod parser {
 
     #[test]
     fn context_lines_count() {
-        // TODO clap limitation
+        // clap limitation requires pre-parsing
         assert_eq!(
             Params {
                 from: os("foo"),
@@ -428,7 +428,8 @@ mod parser {
             parse("diff -U 54 foo bar").unwrap()
         );
 
-        // TODO clap limitation
+        // clap limitation requires pre-parsing
+        // https://github.com/clap-rs/clap/issues/6312
         assert_eq!(
             Params {
                 from: os("foo"),
