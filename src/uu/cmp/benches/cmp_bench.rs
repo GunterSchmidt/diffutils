@@ -22,7 +22,7 @@ use std::sync::OnceLock;
 
 use divan::Bencher;
 use tempfile::TempDir;
-use uu_cmp::{parser_cmp::Params, uu_app};
+use uu_cmp::{params_cmp::Params, uu_app};
 // use uu_cmp::parse_params;
 // use uu_cmp::uumain;
 use uudiff::benchmark::{

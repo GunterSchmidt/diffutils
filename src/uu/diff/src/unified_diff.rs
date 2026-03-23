@@ -10,7 +10,7 @@ use std::io::Write;
 
 use uudiff::utils::{do_write_line, get_modification_time};
 
-use crate::parser_diff::Params;
+use crate::params_diff::Params;
 
 #[derive(Debug, PartialEq)]
 pub enum DiffLine {

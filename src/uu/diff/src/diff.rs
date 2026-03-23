@@ -7,17 +7,18 @@ pub mod context_diff;
 pub mod ed_diff;
 pub mod normal_diff;
 pub mod params;
-pub mod parser_diff;
+pub mod params_diff;
 pub mod side_diff;
 pub mod unified_diff;
 
-use crate::parser_diff::{Format, Params};
+use crate::params_diff::{Format, Params};
 use clap::Command;
 use std::ffi::OsString;
 use std::io::{Read, Write, stdout};
 use std::{fs, io};
 use uudiff::common_errors::UtilsError;
 use uudiff::error::{FromIo, UResult};
+use uudiff::translate;
 
 // Exit codes are documented at
 // https://www.gnu.org/software/diffutils/manual/html_node/Invoking-diff.html.
@@ -70,21 +71,25 @@ pub fn clap_preparation(args: impl uucore::Args) -> Vec<OsString> {
         if arg_os.len() > 2 {
             let arg = arg_os.to_string_lossy();
             if arg.as_bytes()[0] == b'-' {
-                // short options with num or multiple short options, multiple will be discarded
+                // short options with num or multiple short options
                 let mut opt = '-';
                 let mut num = String::new();
-                let mut ok = true;
+                let mut ok = false;
                 // let c = arg.as_bytes()[1] as char;
                 for c in arg.chars().skip(1) {
                     if c.is_ascii_digit() {
                         num.push(c);
-                    } else if c == 'c' || c == 'u' {
-                        if opt == '-' {
-                            opt = c;
-                        } else {
-                            // multiple chars, reject
-                            ok = false;
-                            break;
+                    } else if c.is_ascii_lowercase() {
+                        // possibly multi-single-options, e.g. -sc4 is valid
+                        if c == 'c' || c == 'u' {
+                            if opt == '-' {
+                                opt = c;
+                                ok = true;
+                            } else {
+                                // multiple chars, reject
+                                ok = false;
+                                break;
+                            }
                         }
                     } else {
                         // unknown char, reject
@@ -113,11 +118,10 @@ pub fn diff_compare(params: &Params) -> UResult<()> {
     // if from and to are the same file, no need to perform any comparison
     let maybe_report_identical_files = || {
         if params.report_identical_files {
-            println!(
-                "Files {} and {} are identical",
-                params.from.to_string_lossy(),
-                params.to.to_string_lossy(),
-            );
+            let msg = translate!("diff-info-files-are-identical", 
+                "file_1" => params.from.to_string_lossy(), 
+                "file_2" => params.to.to_string_lossy());
+            println!("{msg}");
         }
     };
     if params.from == "-" && params.to == "-"
@@ -175,22 +179,23 @@ pub fn diff_compare(params: &Params) -> UResult<()> {
         Format::Normal => normal_diff::diff(&from_content, &to_content, params),
         Format::Unified => unified_diff::diff(&from_content, &to_content, params),
         Format::Context => context_diff::diff(&from_content, &to_content, params),
-        Format::Ed => ed_diff::diff(&from_content, &to_content, params).unwrap_or_else(|error| {
-            eprintln!("{error}");
-            uucore::error::set_exit_code(2);
-            std::process::exit(2);
-        }),
+        Format::Ed => ed_diff::diff(&from_content, &to_content, params)?,
+        // .unwrap_or_else(|error| {
+        //     // eprintln!("{error}");
+        //     // uucore::error::set_exit_code(2);
+        //     // std::process::exit(2);
+        //     return super::Err(error);
+        // }),
         Format::SideBySide => {
             let mut output = stdout().lock();
             side_diff::diff(&from_content, &to_content, &mut output, params)
         }
     };
     if params.brief && !result.is_empty() {
-        println!(
-            "Files {} and {} differ",
-            params.from.to_string_lossy(),
-            params.to.to_string_lossy()
-        );
+        let msg = translate!("diff-info-files-are-different", 
+                "file_1" => params.from.to_string_lossy(), 
+                "file_2" => params.to.to_string_lossy());
+        println!("{msg}");
     } else {
         let result = io::stdout().write_all(&result);
         match result {
@@ -225,80 +230,34 @@ pub fn diff_compare(params: &Params) -> UResult<()> {
     Ok(())
 }
 
-// /// Contains all cmp errors and their text messages.
-// ///
-// /// All errors can be output easily using the normal Display functionality.
-// /// To format the error message for the typical diffutils output, use [format_error_text].
-// #[derive(Debug)]
-// pub enum DiffError {
-//     //     /// cmp does not handle directories
-//     //     ///
-//     //     /// Param: wrong operand (dir name)
-//     //     DirectoryNotAllowed(OsString),
-//     //
-//     //     /// File Read IO error
-//     //     ///
-//     //     /// Param: filepath, io error
-//     //     FileReadError(OsString, io::Error),
-//     //
-//     //     /// Generic IO error
-//     //     FileIo(OsString, io::Error),
-//     /// Generic IO error, here only Output errors
-//     Io(Box<dyn UError>),
-//     IoDouble(Box<dyn UError>, Box<dyn UError>),
-// }
-//
-// impl std::error::Error for DiffError {}
-//
-// impl uudiff::error::UError for DiffError {
-//     fn code(&self) -> i32 {
-//         2
-//     }
-//
-//     // fn usage(&self) -> bool {
-//     //     // dbg!("CmpError: running usage");
-//     //     // match self {
-//     //     //     CmpError::DirectoryNotAllowed(os_string) => todo!(),
-//     //     //     CmpError::FileReadError(os_string, error) => todo!(),
-//     //     //     CmpError::FileIo(os_string, error) => todo!(),
-//     //     //     CmpError::GenericIo(error) => todo!(),
-//     //     // }
-//     //     false
-//     // }
-// }
-//
-// impl From<std::io::Error> for DiffError {
-//     fn from(e: std::io::Error) -> Self {
-//         Self::Io(e.into())
-//     }
-// }
-//
-// impl std::fmt::Display for DiffError {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         let msg = match self {
-//             // Self::DirectoryNotAllowed(dir) => write!(f, "'{}': is a directory", dir.to_string_lossy()),
-//             // Self::DirectoryNotAllowed(dir) => {
-//             //     translate!("cmp-error-is-directory", "name" => dir.to_string_lossy())
-//             // }
-//             // Self::FileReadError(path, error) => {
-//             //     utils::format_failure_to_read_input_file(path, error)
-//             // }
-//             // Self::FileIo(path, e) => format!("{}: {}", path.to_string_lossy(), strip_errno(e)),
-//             // very unlikely, not translated
-//             Self::Io(e) => {
-//                 // dbg!("Io");
-//                 return e.fmt(f);
-//             }
-//             Self::IoDouble(e1, e2) => {
-//                 format!("{e1}\n{}: {e2}", uucore::util_name())
-//             }
-//         };
-//
-//         write!(f, "{msg}")
-//     }
-// }
+/// Contains all diff errors and their text messages.
+///
+/// All errors can be output easily using the normal Display functionality.
+/// To format the error message for the typical diffutils output, use [format_error_text].
+#[derive(Debug, PartialEq, Eq)]
+pub enum DiffError {
+    MissingNL,
+}
+
+impl std::error::Error for DiffError {}
+
+impl uudiff::error::UError for DiffError {
+    fn code(&self) -> i32 {
+        2
+    }
+}
+
+impl std::fmt::Display for DiffError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let msg = match self {
+            Self::MissingNL => translate!("diff-error-missing-newline"),
+        };
+
+        write!(f, "{msg}")
+    }
+}
 
 // Required for build.rs
 pub fn uu_app() -> Command {
-    crate::parser_diff::uu_app()
+    crate::params_diff::uu_app()
 }

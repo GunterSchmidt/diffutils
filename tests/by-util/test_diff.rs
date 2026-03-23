@@ -261,8 +261,8 @@ mod diff {
 
 #[cfg(test)]
 mod parser {
-    use ::diff::parser_diff::Params;
-    use diff::{clap_preparation, parser_diff::Format};
+    use ::diff::params_diff::Params;
+    use diff::{clap_preparation, params_diff::Format};
     use uudiff::error::UResult;
 
     // use super::*;
@@ -281,7 +281,7 @@ mod parser {
 
         let opts = clap_preparation(opts);
         let matches =
-            uudiff::clap_localization::handle_clap_result(::diff::parser_diff::uu_app(), opts)?;
+            uudiff::clap_localization::handle_clap_result(::diff::params_diff::uu_app(), opts)?;
         let params: Params = matches.try_into()?;
 
         Ok(params)

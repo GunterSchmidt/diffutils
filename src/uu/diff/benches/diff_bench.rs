@@ -52,7 +52,7 @@ fn diff_parser_clap(bencher: Bencher) {
                 2,
             )
             .unwrap();
-            let _params: uu_diff::parser_diff::Params = matches.try_into().unwrap();
+            let _params: uu_diff::params_diff::Params = matches.try_into().unwrap();
         });
 }
 

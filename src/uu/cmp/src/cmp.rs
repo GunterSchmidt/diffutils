@@ -5,7 +5,7 @@
 
 // spell-checker:ignore ilog
 
-pub mod parser_cmp;
+pub mod params_cmp;
 
 use std::env::{self};
 use std::ffi::OsString;
@@ -17,7 +17,7 @@ use uudiff::common_errors::UtilsError;
 use uudiff::error::{FromIo, UResult};
 use uudiff::utils::{self, CompareOk};
 
-use crate::parser_cmp::{BytesLimitU64, Params, SkipU64};
+use crate::params_cmp::{BytesLimitU64, Params, SkipU64};
 
 #[cfg(not(target_os = "windows"))]
 use std::os::unix::fs::MetadataExt;
@@ -569,5 +569,5 @@ fn write_visible_byte_padded(output: &mut Vec<u8>, byte: u8) {
 
 // Required for build.rs
 pub fn uu_app() -> Command {
-    parser_cmp::uu_app()
+    params_cmp::uu_app()
 }
