@@ -78,11 +78,9 @@
         }
       },
       "args": [
-        "-c2",
-        // "--context=",
-        // "src",
         "lorem_ipsum.txt",
-        "lorem_ipsum_diff.txt"
+        "lorem_ipsum_diff.txt",
+        "--width=56jj"
         // "1ZiB"
         // "99999999999999999999999999999999999999999999999999999999999"
         // "-bl",

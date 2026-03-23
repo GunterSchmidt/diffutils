@@ -59,15 +59,11 @@ diff-info-files-are-identical = Files { $file_1 } and { $file_2 } are identical
 diff-info-files-are-different = Files { $file_1 } and { $file_2 } differ
 
 # Error messages
-# diff-error-missing-newline = No newline at end of file
-# some of these are available centralized I believe
-# diff-error-conflicting-output-options = Conflicting output style options '--{ $opt1 }' and '--{ $opt2 }'.
-# diff-error-invalid-context-length = invalid context length '{ $value }'
-# diff-error-invalid-unified-length = invalid unified length '{ $value }'
-# diff-error-extra-operand = extra operand '{ $operand }'
-# diff-error-is-directory = '{ $name }' is a directory
-# diff-error-missing-operands = missing operand after '{ $util_name }'
-# diff-error-no-such-file-or-directory = { $name }: No such file or directory
+diff-error-missing-newline = No newline at end of file
+diff-error-conflicting-output-options = Conflicting output style options '--{ $opt1 }' and '--{ $opt2 }'.
+diff-error-invalid-context-length = invalid context length '{ $value }'
+diff-error-invalid-unified-length = invalid unified length '{ $value }'
+# These could be centralized. Requires Parser with UResult and all errors with .into().
+diff-error-extra-operand = extra operand '{ $operand }'
+diff-error-missing-operands = missing operand after '{ $util_name }'
 diff-error-not-yet-implemented = the option '--{ $option}' is not yet implemented
-# unclear if the centralized one can be used
-base-common-extra-operand = extra operand {$operand}

@@ -384,7 +384,7 @@ impl std::fmt::Display for ParseCmpError {
             },
 
             Self::ExtraOperand(extra_operand) => {
-                translate!("base-common-extra-operand", "operand" => extra_operand.quote())
+                translate!("cmp-error-extra-operand", "operand" => extra_operand.quote())
             }
             Self::NoOperands(_exe_name) => {
                 translate!("cmp-error-missing-operands", "util_name" => uucore::util_name())
@@ -449,10 +449,9 @@ pub fn uu_app() -> Command {
             Arg::new(options::SILENT)
                 .long("silent")
                 .short('s')
-                // .visible_alias(options::QUIET)
+                // .visible_alias(options::QUIET) works, but shows different --help
                 .action(ArgAction::SetTrue)
                 .help(translate!("cmp-help-silent")),
-            // TODO .visible_short_flag_alias('q'))
         )
         .arg(
             Arg::new(options::VERBOSE)

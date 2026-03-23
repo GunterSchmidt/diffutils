@@ -199,7 +199,7 @@ pub struct Params {
     /// format GTYPE input groups with GFMT
     pub gtype_group_format: Option<String>,
     /// keep NUM lines of the common prefix and suffix
-    pub horizon_lines: Option<String>,
+    pub horizon_lines: Option<usize>,
     /// output merged file with '#ifdef NAME' diffs
     pub ifdef: Option<String>,
     /// ignore all white space
@@ -504,8 +504,11 @@ impl Params {
 
 /// Converts clap args to Params.
 impl TryFrom<clap::ArgMatches> for Params {
+    // For centralized parser errors. Requires Parser with UResult and all errors with .into().
+    // type Error = Box<dyn UError>;
     type Error = ParseDiffError;
 
+    // fn try_from(matches: clap::ArgMatches) -> UResult<Self> {
     fn try_from(matches: clap::ArgMatches) -> Result<Self, Self::Error> {
         // dbg!(&matches);
 
@@ -587,8 +590,8 @@ impl TryFrom<clap::ArgMatches> for Params {
         }
 
         // has horizon_lines?
-        if let Some(horizon_lines) = matches.get_one::<String>(options::HORIZON_LINES) {
-            params.horizon_lines = Some(horizon_lines.clone());
+        if let Some(horizon_lines) = matches.get_one::<usize>(options::HORIZON_LINES) {
+            params.horizon_lines = Some(*horizon_lines);
         }
 
         // has ifdef?
@@ -629,12 +632,11 @@ impl TryFrom<clap::ArgMatches> for Params {
         }
 
         // has tabsize?
-        if let Some(tabsize) = matches.get_one::<String>(options::TABSIZE) {
-            // params.tabsize = Some(tabsize.clone());
-            params.tabsize = tabsize
-                .parse::<usize>()
-                // TODO error message
-                .map_err(|_op| ParseDiffError::MissingOperands)?;
+        if let Some(tabsize) = matches.get_one::<u16>(options::TABSIZE) {
+            params.tabsize = *tabsize as usize;
+            // params.tabsize = tabsize
+            //     .parse::<usize>()
+            //     .map_err(|_op| ParseDiffError::InvalidSomething)?;
         }
 
         // has to_file?
@@ -651,20 +653,11 @@ impl TryFrom<clap::ArgMatches> for Params {
         }
 
         // has width?
-        if let Some(width) = matches.get_one::<String>(options::WIDTH) {
-            // params.width = Some(width.clone());
-            // match width.parse::<usize>() {
-            //     Ok(width) => {
-            //         params.width = width;
-            //         // next_param_consumed = true;
-            //     }
-            //     // Err(_) => return Err(format!("invalid context length '{context}'")),
-            //     // TODO error
-            //     Err(_) => return Err(ParseCmpError::NoOperands("exe".to_string())),
-            // }
-            params.width = width
-                .parse::<usize>()
-                .map_err(|_op| ParseDiffError::MissingOperands)?;
+        if let Some(width) = matches.get_one::<u16>(options::WIDTH) {
+            params.width = *width as usize
+            // params.width = width
+            //     .parse::<usize>()
+            //     .map_err(|_op| ParseDiffError::InvalidSomething)?;
         }
 
         if let Some(format) = format_out {
@@ -681,11 +674,7 @@ impl TryFrom<clap::ArgMatches> for Params {
         // dbg!(&files);
 
         match files.len() {
-            0 => return Err(ParseDiffError::MissingOperands),
-            // If only file_1 is set, then file_2 defaults to '-', so it reads from StandardInput.
-            1 => {
-                return Err(ParseDiffError::MissingOperands);
-            }
+            0 | 1 => return Err(ParseDiffError::MissingOperands),
             2 => {
                 // diff DIRECTORY FILE => diff DIRECTORY/FILE FILE
                 // diff FILE DIRECTORY => diff FILE DIRECTORY/FILE
@@ -900,6 +889,7 @@ impl TryFrom<clap::ArgMatches> for Params {
 // }
 
 /// Contains all parser errors and their text messages.
+/// TODO should be centralized for all utils, messages repeat mostly.
 ///
 /// All errors can be output easily using the normal Display functionality.
 /// To format the error message for the typical diffutils output, use [format_error_text].
@@ -981,7 +971,7 @@ impl std::fmt::Display for ParseDiffError {
                 translate!("diff-error-conflicting-output-options", "opt1" => opt_1, "opt2" => opt_2)
             }
             Self::ExtraOperand(extra_operand) => {
-                translate!("base-common-extra-operand", "operand" => extra_operand.quote())
+                translate!("diff-error-extra-operand", "operand" => extra_operand.quote())
             }
             Self::InvalidContextLength(value) => {
                 translate!("diff-error-invalid-context-length", "value" => value)
@@ -1004,82 +994,6 @@ impl std::fmt::Display for ParseDiffError {
         write!(f, "{msg}")
     }
 }
-
-// pub fn uu_app() -> Command {
-//     Command::new(uucore::util_name())
-//         .version(uucore::crate_version!())
-//         .help_template(uucore::localized_help_template(uucore::util_name()))
-//         .override_usage(uucore::format_usage(&translate!("diff-usage")))
-//         .about(translate!("diff-about"))
-//         .infer_long_args(true)
-//         .arg(
-//             Arg::new(options::FILE)
-//                 .action(ArgAction::Set)
-//                 .hide(true)
-//                 .value_hint(clap::ValueHint::FilePath)
-//                 .value_parser(clap::value_parser!(OsString)),
-//         )
-//         .arg(
-//             Arg::new(options::BYTES_LIMIT)
-//                 .long("bytes")
-//                 .short('n')
-//                 .value_name("LIMIT")
-//                 .action(ArgAction::Set)
-//                 .help(translate!("diff-help-bytes-limit")),
-//         )
-//         .arg(
-//             Arg::new(options::IGNORE_INITIAL)
-//                 .long("ignore-initial")
-//                 .short('i')
-//                 .value_name("SKIP[:SKIP2]")
-//                 .action(ArgAction::Set)
-//                 .help(translate!("diff-help-ignore-initial")),
-//         )
-//         .arg(
-//             Arg::new(options::PRINT_BYTES)
-//                 .long("print-bytes")
-//                 .short('b')
-//                 .action(ArgAction::SetTrue)
-//                 .help(translate!("diff-help-print-bytes")),
-//         )
-//         .arg(
-//             Arg::new(options::QUIET)
-//                 .long("quiet")
-//                 .action(ArgAction::SetTrue)
-//                 .help(translate!("diff-help-quiet")),
-//         )
-//         .arg(
-//             Arg::new(options::SILENT)
-//                 .long("silent")
-//                 .short('s')
-//                 .action(ArgAction::SetTrue)
-//                 .help(translate!("diff-help-silent")),
-//         )
-//         .arg(
-//             Arg::new(options::VERBOSE)
-//                 .long("verbose")
-//                 .short('l')
-//                 .action(ArgAction::SetTrue)
-//                 .help(translate!("diff-help-verbose")),
-//         )
-// }
-
-// Required for build.rs
-// pub fn uu_app() -> Command {
-//     Command::new(uucore::util_name())
-//         .version(uucore::crate_version!())
-//         .help_template(uucore::localized_help_template(uucore::util_name()))
-//         .override_usage(uucore::format_usage(&translate!("diff-usage")))
-//         .about(translate!("diff-about"))
-//         .infer_long_args(true)
-//         .arg(
-//             Arg::new(options::FILE)
-//                 .action(ArgAction::Set)
-//                 .hide(true)
-//                 .value_hint(clap::ValueHint::FilePath)
-//                 .value_parser(clap::value_parser!(OsString)),
-//         )
-// }
 
 // uu_app .args for the options
 pub fn uu_app() -> Command {
@@ -1177,6 +1091,7 @@ pub fn uu_app() -> Command {
             Arg::new(options::HORIZON_LINES)
                 .long("horizon-lines")
                 .value_name("NUM")
+                .value_parser(clap::value_parser!(usize))
                 .action(ArgAction::Set)
                 .help(translate!("diff-help-horizon-lines")),
         )
@@ -1219,6 +1134,7 @@ pub fn uu_app() -> Command {
             Arg::new(options::IGNORE_MATCHING_LINES)
                 .long("ignore-matching-lines")
                 .short('I')
+                // TODO REGEX?
                 .value_name("RE")
                 .action(ArgAction::Set)
                 .help(translate!("diff-help-ignore-matching-lines")),
@@ -1402,6 +1318,7 @@ pub fn uu_app() -> Command {
             Arg::new(options::TABSIZE)
                 .long("tabsize")
                 .value_name("NUM")
+                .value_parser(clap::value_parser!(u16))
                 .action(ArgAction::Set)
                 .help(translate!("diff-help-tabsize")),
         )
@@ -1449,7 +1366,7 @@ pub fn uu_app() -> Command {
                 .long("width")
                 .short('W')
                 .value_name("NUM")
-                // .allow_negative_numbers(yes)
+                .value_parser(clap::value_parser!(u16))
                 .action(ArgAction::Set)
                 .help(translate!("diff-help-width")),
         )
