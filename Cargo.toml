@@ -55,7 +55,6 @@ feat_os_windows = [
 # # If on the parser will return an error message in these cases.
 # # This is preferable when running the util as unsupported options
 # # are pointed out to the user, but can make tests fail. 
-# TODO feat_check_not_yet_implemented = []
 ##
 ## feature sets
 ## (common/core and Tier1) feature sets

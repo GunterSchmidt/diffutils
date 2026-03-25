@@ -882,6 +882,7 @@ impl TryFrom<clap::ArgMatches> for Params {
 
 // uu_app .args for the options
 pub fn uu_app() -> Command {
+    // TODO this defines the order of the items in the help, maybe reorder
     Command::new(uucore::util_name())
         .version(uucore::crate_version!())
         .help_template(uucore::localized_help_template(uucore::util_name()))
@@ -911,18 +912,17 @@ pub fn uu_app() -> Command {
         )
         .arg(
             Arg::new(options::CONTEXT_LINES)
-                .long("context")
                 .short('c')
                 .value_name("NUM")
                 .num_args(0..=1)
                 .require_equals(true)
                 .default_missing_value("3")
                 .action(ArgAction::Set)
-                // TODO help text
                 .help(translate!("diff-help-context")),
         )
         .arg(
             Arg::new(options::CONTEXT_LINES_UPPER)
+                .long("context")
                 .short('C')
                 .value_name("NUM")
                 .action(ArgAction::Set)
@@ -1019,8 +1019,7 @@ pub fn uu_app() -> Command {
             Arg::new(options::IGNORE_MATCHING_LINES)
                 .long("ignore-matching-lines")
                 .short('I')
-                // TODO REGEX?
-                .value_name("RE")
+                .value_name("REGEXP")
                 .action(ArgAction::Set)
                 .help(translate!("diff-help-ignore-matching-lines")),
         )
@@ -1156,7 +1155,7 @@ pub fn uu_app() -> Command {
             Arg::new(options::SHOW_FUNCTION_LINE)
                 .long("show-function-line")
                 .short('F')
-                .value_name("RE")
+                .value_name("REGEXP")
                 .action(ArgAction::Set)
                 .help(translate!("diff-help-show-function-line")),
         )
@@ -1229,7 +1228,6 @@ pub fn uu_app() -> Command {
         )
         .arg(
             Arg::new(options::UNIFIED_LINES)
-                .long("unified")
                 .short('u')
                 .value_name("NUM")
                 .num_args(0..=1)
@@ -1240,10 +1238,10 @@ pub fn uu_app() -> Command {
         )
         .arg(
             Arg::new(options::UNIFIED_LINES_UPPER)
+                .long("unified")
                 .short('U')
                 .value_name("NUM")
                 .action(ArgAction::Set)
-                // TODO help text
                 .help(translate!("diff-help-unified")),
         )
         .arg(

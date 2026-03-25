@@ -104,7 +104,6 @@ impl std::fmt::Display for UtilsErrorCode {
 }
 
 /// Contains all parser errors and their text messages.
-/// TODO should be centralized for all utils, messages repeat mostly.
 ///
 /// All errors can be output easily using the normal Display functionality.
 /// To format the error message for the typical diffutils output, use [format_error_text].
