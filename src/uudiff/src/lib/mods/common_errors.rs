@@ -7,6 +7,9 @@
 
 use std::ffi::OsString;
 
+use os_display::Quotable;
+use uucore::parser::parse_size::ParseSizeError;
+
 use crate::{error::UError, translate};
 
 /// Contains common Core/DiffUtils errors and their text messages.
@@ -97,5 +100,106 @@ impl UError for UtilsErrorCode {
 impl std::fmt::Display for UtilsErrorCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.utils_error.fmt(f)
+    }
+}
+
+/// Contains all parser errors and their text messages.
+/// TODO should be centralized for all utils, messages repeat mostly.
+///
+/// All errors can be output easily using the normal Display functionality.
+/// To format the error message for the typical diffutils output, use [format_error_text].
+#[derive(Debug, PartialEq, Eq)]
+pub enum UParseError {
+    /// (Option, value, error)
+    ParseSizeError(&'static str, String, ParseSizeError),
+
+    /// (Format options)
+    ConflictingOutputStyle(String, String),
+
+    /// Having more operands than the four allowed (file_1, file_2, ign_1, ign_2)
+    ///
+    /// Params: (wrong operand)
+    ExtraOperand(OsString),
+
+    InvalidContextLength(String),
+    InvalidUnifiedLength(String),
+
+    /// Operand missing, e.g. diff without files
+    MissingOperand(String),
+
+    /// Two options cannot be used together, e.g. cmp --silent and --verbose (output).
+    OptionsIncompatible(&'static str, &'static str),
+
+    /// Error message for options available in GNU, but not yet here
+    NotYetImplemented(&'static str),
+}
+
+impl std::error::Error for UParseError {}
+
+impl UError for UParseError {
+    fn code(&self) -> i32 {
+        2
+    }
+
+    fn usage(&self) -> bool {
+        // TODO should not returns full path on try --help message
+        // Try '/home/gunnar/SynologyDrive/Development/diffutils_fork/target/debug/cmp --help' for more information.
+        true
+    }
+}
+
+impl std::fmt::Display for UParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let msg = match self {
+            Self::ParseSizeError(option, value, e) => match e {
+                ParseSizeError::InvalidSuffix(_) => {
+                    translate!(
+                        "parse-error-invalid-value-unit",
+                        "option" => option,
+                        "value" => value
+                    )
+                }
+                ParseSizeError::ParseFailure(_) => {
+                    translate!(
+                        "parse-error-invalid-value",
+                        "option" => option,
+                        "value" => value
+                    )
+                }
+                ParseSizeError::SizeTooBig(_) => {
+                    translate!(
+                        "parse-error-invalid-value-overflow",
+                        "option" => option,
+                        "value" => value
+                    )
+                }
+                ParseSizeError::PhysicalMem(_value) => e.to_string(),
+            },
+
+            Self::ConflictingOutputStyle(opt_1, opt_2) => {
+                translate!("parse-error-conflicting-output-options", "opt1" => opt_1, "opt2" => opt_2)
+            }
+            Self::ExtraOperand(extra_operand) => {
+                translate!("parse-error-extra-operand", "operand" => extra_operand.quote())
+            }
+            Self::InvalidContextLength(value) => {
+                translate!("parse-error-invalid-context-length", "value" => value)
+            }
+            Self::InvalidUnifiedLength(value) => {
+                translate!("parse-error-invalid-unified-length", "value" => value)
+            }
+            Self::MissingOperand(after) => {
+                translate!("parse-error-missing-operand", "after" => after)
+            }
+            Self::OptionsIncompatible(option_1, option_2) => translate!(
+                "parse-error-incompatible-options",
+                "opt1" => option_1,
+                "opt2" => option_2,
+            ),
+            Self::NotYetImplemented(s) => {
+                translate!("parse-error-not-yet-implemented", "option" => s)
+            }
+        };
+        write!(f, "{msg}")
     }
 }

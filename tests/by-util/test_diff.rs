@@ -262,7 +262,7 @@ mod diff {
 #[cfg(test)]
 mod parser {
     use ::diff::params_diff::Params;
-    use diff::{clap_preparation, params_diff::Format};
+    use diff::{clap_preparation, params_diff::FormatOutput};
     use uudiff::error::UResult;
 
     // use super::*;
@@ -305,7 +305,7 @@ mod parser {
                 Params {
                     from: os("foo"),
                     to: os("bar"),
-                    format_out: Format::Ed,
+                    format_out: FormatOutput::Ed,
                     ..Default::default()
                 },
                 parse(&format!("diff {arg} foo bar")).unwrap()
@@ -335,7 +335,7 @@ mod parser {
                 Params {
                     from: os("foo"),
                     to: os("bar"),
-                    format_out: Format::Context,
+                    format_out: FormatOutput::Context,
                     ..Default::default()
                 },
                 parse(&format!("diff {arg} foo bar")).unwrap()
@@ -347,7 +347,7 @@ mod parser {
                 Params {
                     from: os("foo"),
                     to: os("bar"),
-                    format_out: Format::Context,
+                    format_out: FormatOutput::Context,
                     n_output_lines: 42,
                     ..Default::default()
                 },
@@ -366,7 +366,7 @@ mod parser {
                 Params {
                     from: os("foo"),
                     to: os("bar"),
-                    format_out: Format::Context,
+                    format_out: FormatOutput::Context,
                     n_output_lines: 42,
                     ..Default::default()
                 },
@@ -399,7 +399,7 @@ mod parser {
             Params {
                 from: os("foo"),
                 to: os("bar"),
-                format_out: Format::Unified,
+                format_out: FormatOutput::Unified,
                 n_output_lines: 54,
                 ..Default::default()
             },
@@ -410,7 +410,7 @@ mod parser {
             Params {
                 from: os("foo"),
                 to: os("bar"),
-                format_out: Format::Unified,
+                format_out: FormatOutput::Unified,
                 n_output_lines: 54,
                 ..Default::default()
             },
@@ -421,7 +421,7 @@ mod parser {
             Params {
                 from: os("foo"),
                 to: os("bar"),
-                format_out: Format::Unified,
+                format_out: FormatOutput::Unified,
                 n_output_lines: 54,
                 ..Default::default()
             },
@@ -434,7 +434,7 @@ mod parser {
             Params {
                 from: os("foo"),
                 to: os("bar"),
-                format_out: Format::Context,
+                format_out: FormatOutput::Context,
                 n_output_lines: 54,
                 ..Default::default()
             },
@@ -449,7 +449,7 @@ mod parser {
                 Params {
                     from: os("foo"),
                     to: os("bar"),
-                    format_out: Format::Unified,
+                    format_out: FormatOutput::Unified,
                     ..Default::default()
                 },
                 parse(&format!("diff {arg} foo bar")).unwrap()
@@ -461,7 +461,7 @@ mod parser {
                 Params {
                     from: os("foo"),
                     to: os("bar"),
-                    format_out: Format::Unified,
+                    format_out: FormatOutput::Unified,
                     n_output_lines: 42,
                     ..Default::default()
                 },
@@ -480,7 +480,7 @@ mod parser {
                 Params {
                     from: os("foo"),
                     to: os("bar"),
-                    format_out: Format::Unified,
+                    format_out: FormatOutput::Unified,
                     n_output_lines: 42,
                     ..Default::default()
                 },

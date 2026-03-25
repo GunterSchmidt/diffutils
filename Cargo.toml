@@ -50,12 +50,12 @@ feat_os_windows = [
 #
 # TODO How are features centralized in this workspace file?
 # # instead of limiting to KiB, MiB, etc, one can write kib, mib, Mb or whatever case.
-# feat_allow_case_insensitive_number_units = []
+# TODO feat_allow_case_insensitive_number_units = []
 # # Enables a check on options defined in NOT_YET_IMPLEMENTED.
 # # If on the parser will return an error message in these cases.
 # # This is preferable when running the util as unsupported options
 # # are pointed out to the user, but can make tests fail. 
-# feat_check_not_yet_implemented = []
+# TODO feat_check_not_yet_implemented = []
 ##
 ## feature sets
 ## (common/core and Tier1) feature sets

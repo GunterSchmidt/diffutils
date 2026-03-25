@@ -10,9 +10,9 @@
 //!
 use clap::{Arg, ArgAction, Command};
 use std::ffi::OsString;
-use uucore::display::Quotable;
 use uucore::parser::parse_size::{ParseSizeError, Parser};
-use uudiff::{error::UError, translate};
+use uudiff::common_errors::UParseError;
+use uudiff::translate;
 
 /// For option --bytes, set to u64, so large size limits can
 /// be expressed, like Exabyte. \
@@ -98,19 +98,19 @@ impl Params {
     /// Sets the --bytes limit and returns the input as number.
     ///
     /// bytes - unparsed number string, e.g. '50KiB'
-    pub fn set_bytes_limit(&mut self, num_unit: &str) -> Result<BytesLimitU64, ParseCmpError> {
+    pub fn set_bytes_limit(&mut self, num_unit: &str) -> Result<BytesLimitU64, UParseError> {
         let num = Self::parse_num_bytes(num_unit).map_err(|e| {
-            ParseCmpError::ParseSizeError(options::BYTES_LIMIT, num_unit.to_string(), e)
+            UParseError::ParseSizeError(options::BYTES_LIMIT, num_unit.to_string(), e)
         })?;
 
         self.bytes_limit = Some(num);
         Ok(num)
     }
 
-    pub fn set_print_bytes(&mut self, value: bool) -> Result<(), ParseCmpError> {
+    pub fn set_print_bytes(&mut self, value: bool) -> Result<(), UParseError> {
         // Should actually raise an error if --silent is set, but GNU cmp does not do that.
         if value && self.silent {
-            return Err(ParseCmpError::OptionsIncompatible(
+            return Err(UParseError::OptionsIncompatible(
                 options::PRINT_BYTES,
                 options::SILENT,
             ));
@@ -124,7 +124,7 @@ impl Params {
     ///
     /// Accepts digits[unit][:digits[unit]] \
     /// Sets the 2nd file to the value of the 1st file if no second parameter is given. \
-    pub fn set_skip_bytes(&mut self, bytes: &str) -> Result<(), ParseCmpError> {
+    pub fn set_skip_bytes(&mut self, bytes: &str) -> Result<(), UParseError> {
         // empty string is not checked
 
         // Split at ':' if present
@@ -150,11 +150,11 @@ impl Params {
         &mut self,
         bytes_num_unit: &str,
         file_no: i32,
-    ) -> Result<SkipU64, ParseCmpError> {
+    ) -> Result<SkipU64, UParseError> {
         let skip = match Self::parse_num_bytes(bytes_num_unit) {
             Ok(r) => r,
             Err(e) => {
-                return Err(ParseCmpError::ParseSizeError(
+                return Err(UParseError::ParseSizeError(
                     options::IGNORE_INITIAL,
                     bytes_num_unit.to_string(),
                     e,
@@ -181,9 +181,9 @@ impl Params {
         Ok(skip)
     }
 
-    pub fn set_verbose(&mut self, value: bool) -> Result<(), ParseCmpError> {
+    pub fn set_verbose(&mut self, value: bool) -> Result<(), UParseError> {
         if value && self.silent {
-            return Err(ParseCmpError::OptionsIncompatible(
+            return Err(UParseError::OptionsIncompatible(
                 options::VERBOSE,
                 options::SILENT,
             ));
@@ -203,16 +203,13 @@ impl Params {
             // .with_b_byte_count(true)
             .parse(input.trim())?;
 
-        SkipU64::try_from(size).map_err(|_| {
-            // ParseSizeError::SizeTooBig(translate!("sort-error-buffer-size-too-big", "size" => size))
-            ParseSizeError::SizeTooBig(input.to_string())
-        })
+        SkipU64::try_from(size).map_err(|_| ParseSizeError::SizeTooBig(input.to_string()))
     }
 }
 
 /// Converts clap args to params.
 impl TryFrom<clap::ArgMatches> for Params {
-    type Error = ParseCmpError;
+    type Error = UParseError;
 
     fn try_from(matches: clap::ArgMatches) -> Result<Self, Self::Error> {
         // dbg!(&matches);
@@ -238,12 +235,12 @@ impl TryFrom<clap::ArgMatches> for Params {
         // get files
         let files: Vec<OsString> = match matches.get_many::<OsString>(options::FILE) {
             Some(v) => v.cloned().collect(),
-            None => return Err(ParseCmpError::NoOperands(uucore::util_name().to_string())),
+            None => return Err(UParseError::MissingOperand(uucore::util_name().to_string())),
         };
         // dbg!(&files);
 
         match files.len() {
-            0 => return Err(ParseCmpError::NoOperands(uucore::util_name().to_string())),
+            0 => return Err(UParseError::MissingOperand(uucore::util_name().to_string())),
             // If only file_1 is set, then file_2 defaults to '-', so it reads from StandardInput.
             1 => {
                 params.from.clone_from(&files[0]);
@@ -261,7 +258,7 @@ impl TryFrom<clap::ArgMatches> for Params {
                 }
             }
             _ => {
-                return Err(ParseCmpError::ExtraOperand(files[4].clone()));
+                return Err(UParseError::ExtraOperand(files[4].clone()));
             }
         }
 
@@ -307,99 +304,6 @@ fn is_stdout_dev_null() -> bool {
     std::mem::forget(stdout_file);
 
     is_dev_null
-}
-
-/// Contains all parser errors and their text messages.
-///
-/// All errors can be output easily using the normal Display functionality.
-/// To format the error message for the typical diffutils output, use [format_error_text].
-#[derive(Debug, PartialEq)]
-pub enum ParseCmpError {
-    /// (Option, value, error)
-    ParseSizeError(&'static str, String, ParseSizeError),
-
-    /// Having more operands than the four allowed (file_1, file_2, ign_1, ign_2)
-    ///
-    /// Params: (wrong operand)
-    ExtraOperand(OsString),
-
-    /// No args for the cmp utility given.
-    /// Requires at least one file (other will then be standard input).
-    ///
-    /// Params: (executable name)
-    // TODO test stdin for windows
-    NoOperands(String),
-
-    /// Two options cannot be used together, e.g. cmp --silent and --verbose (output).
-    OptionsIncompatible(&'static str, &'static str),
-    // Error message for options available in GNU, but not yet here
-    // NotYetImplemented(String),
-}
-
-impl std::error::Error for ParseCmpError {}
-
-impl UError for ParseCmpError {
-    fn code(&self) -> i32 {
-        2
-    }
-
-    fn usage(&self) -> bool {
-        // TODO should not return full path on try --help message
-        // Try '/home/gunnar/SynologyDrive/Development/diffutils_fork/target/debug/cmp --help' for more information.
-        true
-    }
-}
-
-impl std::fmt::Display for ParseCmpError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let msg = match self {
-            Self::ParseSizeError(option, value, e) => match e {
-                ParseSizeError::InvalidSuffix(_) => {
-                    translate!(
-                        "cmp-error-invalid-value-unit",
-                        "option" => option,
-                        "value" => value
-                    )
-                }
-                ParseSizeError::ParseFailure(_) => {
-                    translate!(
-                        "cmp-error-invalid-value",
-                        "option" => option,
-                        "value" => value
-                    )
-                }
-                ParseSizeError::SizeTooBig(_) => {
-                    dbg!(translate!(
-                        "cmp-error-invalid-value-overflow",
-                        "option" => option,
-                        "value" => value
-                    ));
-                    translate!(
-                        "cmp-error-invalid-value-overflow",
-                        "option" => option,
-                        "value" => value
-                    )
-                }
-                ParseSizeError::PhysicalMem(_value) => e.to_string(),
-            },
-
-            Self::ExtraOperand(extra_operand) => {
-                translate!("cmp-error-extra-operand", "operand" => extra_operand.quote())
-            }
-            Self::NoOperands(_exe_name) => {
-                translate!("cmp-error-missing-operands", "util_name" => uucore::util_name())
-            }
-            Self::OptionsIncompatible(option_1, option_2) => translate!(
-                "cmp-error-incompatible-options",
-                "opt1" => option_1,
-                "opt2" => option_2,
-            ),
-            // Self::NotYetImplemented(s) => {
-            //     translate!("cmp-error-not-yet-implemented", "option" => s)
-            // }
-        };
-        write!(f, "{msg}")
-    }
 }
 
 pub fn uu_app() -> Command {

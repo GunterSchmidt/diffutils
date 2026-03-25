@@ -14,9 +14,7 @@ use clap::{Arg, ArgAction, Command};
 use std::ffi::OsString;
 use std::fmt::Display;
 use std::path::PathBuf;
-use uucore::display::Quotable;
-use uucore::parser::parse_size::ParseSizeError;
-use uudiff::{error::UError, translate};
+use uudiff::{common_errors::UParseError, translate};
 
 /// For option --bytes, set to u64, so large size limits can
 /// be expressed, like Exabyte. \
@@ -136,7 +134,7 @@ mod options {
 
 /// Output format
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub enum Format {
+pub enum FormatOutput {
     #[default]
     /// Default output
     Normal,
@@ -148,7 +146,7 @@ pub enum Format {
     SideBySide,
 }
 
-impl From<&str> for Format {
+impl From<&str> for FormatOutput {
     fn from(option: &str) -> Self {
         match option {
             options::NORMAL => Self::Normal,
@@ -161,7 +159,7 @@ impl From<&str> for Format {
     }
 }
 
-impl Display for Format {
+impl Display for FormatOutput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let opt = match self {
             Self::Normal => options::NORMAL,
@@ -193,7 +191,7 @@ pub struct Params {
     /// expand tabs to spaces in output
     pub expand_tabs: bool,
     /// output format
-    pub format_out: Format,
+    pub format_out: FormatOutput,
     /// compare FILE1 to all operands;
     pub from_file: Option<String>,
     /// format GTYPE input groups with GFMT
@@ -426,15 +424,18 @@ impl Params {
     //     }
 
     pub fn set_format(
-        format: &mut Option<Format>,
+        format: &mut Option<FormatOutput>,
         option: &str,
         value: bool,
-    ) -> Result<(), ParseDiffError> {
+    ) -> Result<(), UParseError> {
         if value {
-            let new = option.into();
+            let new: FormatOutput = option.into();
             match format {
                 Some(f) => {
-                    return Err(ParseDiffError::ConflictingOutputStyle(*f, new));
+                    return Err(UParseError::ConflictingOutputStyle(
+                        f.to_string(),
+                        new.to_string(),
+                    ));
                 }
                 None => *format = Some(new),
             }
@@ -443,12 +444,12 @@ impl Params {
     }
 
     pub fn set_context_lines(
-        format_out: &mut Option<Format>,
+        format_out: &mut Option<FormatOutput>,
         params: &mut Self,
         context: &str,
-    ) -> Result<(), ParseDiffError> {
+    ) -> Result<(), UParseError> {
         Self::set_format(format_out, options::CONTEXT_LINES, true)?;
-        params.format_out = Format::Context;
+        params.format_out = FormatOutput::Context;
         match context.parse::<usize>() {
             Ok(context_size) => {
                 params.n_output_lines = context_size;
@@ -456,7 +457,7 @@ impl Params {
             Err(_) => {
                 // empty stays on default
                 if !context.is_empty() {
-                    return Err(ParseDiffError::InvalidContextLength(context.to_string()));
+                    return Err(UParseError::InvalidContextLength(context.to_string()));
                 }
             }
         }
@@ -464,12 +465,12 @@ impl Params {
     }
 
     pub fn set_unified_lines(
-        format_out: &mut Option<Format>,
+        format_out: &mut Option<FormatOutput>,
         params: &mut Self,
         unified: &str,
-    ) -> Result<(), ParseDiffError> {
+    ) -> Result<(), UParseError> {
         Self::set_format(format_out, options::UNIFIED_LINES, true)?;
-        params.format_out = Format::Unified;
+        params.format_out = FormatOutput::Unified;
         match unified.parse::<usize>() {
             Ok(unified_size) => {
                 params.n_output_lines = unified_size;
@@ -477,7 +478,7 @@ impl Params {
             Err(_) => {
                 // empty stays on default
                 if !unified.is_empty() {
-                    return Err(ParseDiffError::InvalidUnifiedLength(unified.to_string()));
+                    return Err(UParseError::InvalidUnifiedLength(unified.to_string()));
                 }
             }
         }
@@ -506,7 +507,7 @@ impl Params {
 impl TryFrom<clap::ArgMatches> for Params {
     // For centralized parser errors. Requires Parser with UResult and all errors with .into().
     // type Error = Box<dyn UError>;
-    type Error = ParseDiffError;
+    type Error = UParseError;
 
     // fn try_from(matches: clap::ArgMatches) -> UResult<Self> {
     fn try_from(matches: clap::ArgMatches) -> Result<Self, Self::Error> {
@@ -545,7 +546,7 @@ impl TryFrom<clap::ArgMatches> for Params {
 
         // set output format
         let mut format_out = if matches.get_flag(options::NORMAL) {
-            Some(Format::Normal)
+            Some(FormatOutput::Normal)
         } else {
             None
         };
@@ -654,7 +655,7 @@ impl TryFrom<clap::ArgMatches> for Params {
 
         // has width?
         if let Some(width) = matches.get_one::<u16>(options::WIDTH) {
-            params.width = *width as usize
+            params.width = *width as usize;
             // params.width = width
             //     .parse::<usize>()
             //     .map_err(|_op| ParseDiffError::InvalidSomething)?;
@@ -668,13 +669,18 @@ impl TryFrom<clap::ArgMatches> for Params {
         let files: Vec<OsString> = match matches.get_many::<OsString>(options::FILE) {
             Some(v) => v.cloned().collect(),
             None => {
-                return Err(ParseDiffError::MissingOperands);
+                return Err(UParseError::MissingOperand(uucore::util_name().to_string()));
             }
         };
         // dbg!(&files);
 
         match files.len() {
-            0 | 1 => return Err(ParseDiffError::MissingOperands),
+            0 => return Err(UParseError::MissingOperand(uucore::util_name().to_string())),
+            1 => {
+                return Err(UParseError::MissingOperand(
+                    files[0].to_string_lossy().to_string(),
+                ));
+            }
             2 => {
                 // diff DIRECTORY FILE => diff DIRECTORY/FILE FILE
                 // diff FILE DIRECTORY => diff FILE DIRECTORY/FILE
@@ -691,50 +697,46 @@ impl TryFrom<clap::ArgMatches> for Params {
             }
             _ => {
                 // dbg!(&files);
-                return Err(ParseDiffError::ExtraOperand(files[2].clone()));
+                return Err(UParseError::ExtraOperand(files[2].clone()));
             }
         }
 
         // not yet implemented error; delete when implemented
         if matches.get_one::<String>(options::COLOR).is_some() {
-            return Err(ParseDiffError::NotYetImplemented(options::COLOR));
+            return Err(UParseError::NotYetImplemented(options::COLOR));
         }
         if matches.get_one::<String>(options::EXCLUDE).is_some() {
-            return Err(ParseDiffError::NotYetImplemented(options::EXCLUDE));
+            return Err(UParseError::NotYetImplemented(options::EXCLUDE));
         }
         if matches.get_one::<String>(options::EXCLUDE_FROM).is_some() {
-            return Err(ParseDiffError::NotYetImplemented(options::EXCLUDE_FROM));
+            return Err(UParseError::NotYetImplemented(options::EXCLUDE_FROM));
         }
         if matches.get_one::<String>(options::FROM_FILE).is_some() {
-            return Err(ParseDiffError::NotYetImplemented(options::FROM_FILE));
+            return Err(UParseError::NotYetImplemented(options::FROM_FILE));
         }
         if matches
             .get_one::<String>(options::GTYPE_GROUP_FORMAT)
             .is_some()
         {
-            return Err(ParseDiffError::NotYetImplemented(
-                options::GTYPE_GROUP_FORMAT,
-            ));
+            return Err(UParseError::NotYetImplemented(options::GTYPE_GROUP_FORMAT));
         }
         if matches.get_one::<String>(options::HORIZON_LINES).is_some() {
-            return Err(ParseDiffError::NotYetImplemented(options::HORIZON_LINES));
+            return Err(UParseError::NotYetImplemented(options::HORIZON_LINES));
         }
         if matches.get_one::<String>(options::IFDEF).is_some() {
-            return Err(ParseDiffError::NotYetImplemented(options::IFDEF));
+            return Err(UParseError::NotYetImplemented(options::IFDEF));
         }
         if matches.get_flag(options::IGNORE_ALL_SPACE) {
-            return Err(ParseDiffError::NotYetImplemented(options::IGNORE_ALL_SPACE));
+            return Err(UParseError::NotYetImplemented(options::IGNORE_ALL_SPACE));
         }
         if matches.get_flag(options::IGNORE_BLANK_LINES) {
-            return Err(ParseDiffError::NotYetImplemented(
-                options::IGNORE_BLANK_LINES,
-            ));
+            return Err(UParseError::NotYetImplemented(options::IGNORE_BLANK_LINES));
         }
         if matches.get_flag(options::IGNORE_CASE) {
-            return Err(ParseDiffError::NotYetImplemented(options::IGNORE_CASE));
+            return Err(UParseError::NotYetImplemented(options::IGNORE_CASE));
         }
         if matches.get_flag(options::IGNORE_FILE_NAME_CASE) {
-            return Err(ParseDiffError::NotYetImplemented(
+            return Err(UParseError::NotYetImplemented(
                 options::IGNORE_FILE_NAME_CASE,
             ));
         }
@@ -742,113 +744,103 @@ impl TryFrom<clap::ArgMatches> for Params {
             .get_one::<String>(options::IGNORE_MATCHING_LINES)
             .is_some()
         {
-            return Err(ParseDiffError::NotYetImplemented(
+            return Err(UParseError::NotYetImplemented(
                 options::IGNORE_MATCHING_LINES,
             ));
         }
         if matches.get_flag(options::IGNORE_SPACE_CHANGE) {
-            return Err(ParseDiffError::NotYetImplemented(
-                options::IGNORE_SPACE_CHANGE,
-            ));
+            return Err(UParseError::NotYetImplemented(options::IGNORE_SPACE_CHANGE));
         }
         if matches.get_flag(options::IGNORE_TAB_EXPANSION) {
-            return Err(ParseDiffError::NotYetImplemented(
+            return Err(UParseError::NotYetImplemented(
                 options::IGNORE_TAB_EXPANSION,
             ));
         }
         if matches.get_flag(options::IGNORE_TRAILING_SPACE) {
-            return Err(ParseDiffError::NotYetImplemented(
+            return Err(UParseError::NotYetImplemented(
                 options::IGNORE_TRAILING_SPACE,
             ));
         }
         if matches.get_flag(options::INITIAL_TAB) {
-            return Err(ParseDiffError::NotYetImplemented(options::INITIAL_TAB));
+            return Err(UParseError::NotYetImplemented(options::INITIAL_TAB));
         }
         if matches.get_flag(options::LABEL) {
-            return Err(ParseDiffError::NotYetImplemented(options::LABEL));
+            return Err(UParseError::NotYetImplemented(options::LABEL));
         }
         if matches.get_flag(options::LEFT_COLUMN) {
-            return Err(ParseDiffError::NotYetImplemented(options::LEFT_COLUMN));
+            return Err(UParseError::NotYetImplemented(options::LEFT_COLUMN));
         }
         if matches.get_one::<String>(options::LINE_FORMAT).is_some() {
-            return Err(ParseDiffError::NotYetImplemented(options::LINE_FORMAT));
+            return Err(UParseError::NotYetImplemented(options::LINE_FORMAT));
         }
         if matches
             .get_one::<String>(options::LTYPE_LINE_FORMAT)
             .is_some()
         {
-            return Err(ParseDiffError::NotYetImplemented(
-                options::LTYPE_LINE_FORMAT,
-            ));
+            return Err(UParseError::NotYetImplemented(options::LTYPE_LINE_FORMAT));
         }
         if matches.get_flag(options::MINIMAL) {
-            return Err(ParseDiffError::NotYetImplemented(options::MINIMAL));
+            return Err(UParseError::NotYetImplemented(options::MINIMAL));
         }
         if matches.get_flag(options::NEW_FILE) {
-            return Err(ParseDiffError::NotYetImplemented(options::NEW_FILE));
+            return Err(UParseError::NotYetImplemented(options::NEW_FILE));
         }
         if matches.get_flag(options::NO_DEREFERENCE) {
-            return Err(ParseDiffError::NotYetImplemented(options::NO_DEREFERENCE));
+            return Err(UParseError::NotYetImplemented(options::NO_DEREFERENCE));
         }
         if matches.get_flag(options::NO_IGNORE_FILE_NAME_CASE) {
-            return Err(ParseDiffError::NotYetImplemented(
+            return Err(UParseError::NotYetImplemented(
                 options::NO_IGNORE_FILE_NAME_CASE,
             ));
         }
         if matches.get_flag(options::PAGINATE) {
-            return Err(ParseDiffError::NotYetImplemented(options::PAGINATE));
+            return Err(UParseError::NotYetImplemented(options::PAGINATE));
         }
         if matches.get_one::<String>(options::PALETTE).is_some() {
-            return Err(ParseDiffError::NotYetImplemented(options::PALETTE));
+            return Err(UParseError::NotYetImplemented(options::PALETTE));
         }
         if matches.get_flag(options::RCS) {
-            return Err(ParseDiffError::NotYetImplemented(options::RCS));
+            return Err(UParseError::NotYetImplemented(options::RCS));
         }
         if matches.get_flag(options::RECURSIVE) {
-            return Err(ParseDiffError::NotYetImplemented(options::RECURSIVE));
+            return Err(UParseError::NotYetImplemented(options::RECURSIVE));
         }
         if matches.get_flag(options::SHOW_C_FUNCTION) {
-            return Err(ParseDiffError::NotYetImplemented(options::SHOW_C_FUNCTION));
+            return Err(UParseError::NotYetImplemented(options::SHOW_C_FUNCTION));
         }
         if matches
             .get_one::<String>(options::SHOW_FUNCTION_LINE)
             .is_some()
         {
-            return Err(ParseDiffError::NotYetImplemented(
-                options::SHOW_FUNCTION_LINE,
-            ));
+            return Err(UParseError::NotYetImplemented(options::SHOW_FUNCTION_LINE));
         }
         if matches.get_flag(options::SPEED_LARGE_FILES) {
-            return Err(ParseDiffError::NotYetImplemented(
-                options::SPEED_LARGE_FILES,
-            ));
+            return Err(UParseError::NotYetImplemented(options::SPEED_LARGE_FILES));
         }
         if matches.get_one::<String>(options::STARTING_FILE).is_some() {
-            return Err(ParseDiffError::NotYetImplemented(options::STARTING_FILE));
+            return Err(UParseError::NotYetImplemented(options::STARTING_FILE));
         }
         if matches.get_flag(options::STRIP_TRAILING_CR) {
-            return Err(ParseDiffError::NotYetImplemented(
-                options::STRIP_TRAILING_CR,
-            ));
+            return Err(UParseError::NotYetImplemented(options::STRIP_TRAILING_CR));
         }
         if matches.get_flag(options::SUPPRESS_BLANK_EMPTY) {
-            return Err(ParseDiffError::NotYetImplemented(
+            return Err(UParseError::NotYetImplemented(
                 options::SUPPRESS_BLANK_EMPTY,
             ));
         }
         if matches.get_flag(options::SUPPRESS_COMMON_LINES) {
-            return Err(ParseDiffError::NotYetImplemented(
+            return Err(UParseError::NotYetImplemented(
                 options::SUPPRESS_COMMON_LINES,
             ));
         }
         if matches.get_flag(options::TEXT) {
-            return Err(ParseDiffError::NotYetImplemented(options::TEXT));
+            return Err(UParseError::NotYetImplemented(options::TEXT));
         }
         if matches.get_one::<String>(options::TO_FILE).is_some() {
-            return Err(ParseDiffError::NotYetImplemented(options::TO_FILE));
+            return Err(UParseError::NotYetImplemented(options::TO_FILE));
         }
         if matches.get_flag(options::UNIDIRECTIONAL_NEW_FILE) {
-            return Err(ParseDiffError::NotYetImplemented(
+            return Err(UParseError::NotYetImplemented(
                 options::UNIDIRECTIONAL_NEW_FILE,
             ));
         }
@@ -887,113 +879,6 @@ impl TryFrom<clap::ArgMatches> for Params {
 //
 //     is_dev_null
 // }
-
-/// Contains all parser errors and their text messages.
-/// TODO should be centralized for all utils, messages repeat mostly.
-///
-/// All errors can be output easily using the normal Display functionality.
-/// To format the error message for the typical diffutils output, use [format_error_text].
-#[derive(Debug, PartialEq)]
-pub enum ParseDiffError {
-    /// (Option, value, error)
-    ParseSizeError(&'static str, String, ParseSizeError),
-
-    /// (Format options)
-    ConflictingOutputStyle(Format, Format),
-
-    /// Having more operands than the four allowed (file_1, file_2, ign_1, ign_2)
-    ///
-    /// Params: (wrong operand)
-    ExtraOperand(OsString),
-
-    InvalidContextLength(String),
-    InvalidUnifiedLength(String),
-
-    /// No args for the diff utility given.
-    /// Requires at least two files.
-    MissingOperands,
-
-    /// Two options cannot be used together, e.g. cmp --silent and --verbose (output).
-    OptionsIncompatible(&'static str, &'static str),
-
-    /// Error message for options available in GNU, but not yet here
-    NotYetImplemented(&'static str),
-}
-
-impl std::error::Error for ParseDiffError {}
-
-impl UError for ParseDiffError {
-    fn code(&self) -> i32 {
-        2
-    }
-
-    fn usage(&self) -> bool {
-        // TODO should not returns full path on try --help message
-        // Try '/home/gunnar/SynologyDrive/Development/diffutils_fork/target/debug/cmp --help' for more information.
-        true
-    }
-}
-
-impl std::fmt::Display for ParseDiffError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let msg = match self {
-            Self::ParseSizeError(option, value, e) => match e {
-                ParseSizeError::InvalidSuffix(_) => {
-                    translate!(
-                        "diff-error-invalid-value-unit",
-                        "option" => option,
-                        "value" => value
-                    )
-                }
-                ParseSizeError::ParseFailure(_) => {
-                    translate!(
-                        "diff-error-invalid-value",
-                        "option" => option,
-                        "value" => value
-                    )
-                }
-                ParseSizeError::SizeTooBig(_) => {
-                    // dbg!(translate!(
-                    //     "diff-error-invalid-value-overflow",
-                    //     "option" => option,
-                    //     "value" => value
-                    // ));
-                    translate!(
-                        "diff-error-invalid-value-overflow",
-                        "option" => option,
-                        "value" => value
-                    )
-                }
-                ParseSizeError::PhysicalMem(_value) => e.to_string(),
-            },
-
-            Self::ConflictingOutputStyle(opt_1, opt_2) => {
-                translate!("diff-error-conflicting-output-options", "opt1" => opt_1, "opt2" => opt_2)
-            }
-            Self::ExtraOperand(extra_operand) => {
-                translate!("diff-error-extra-operand", "operand" => extra_operand.quote())
-            }
-            Self::InvalidContextLength(value) => {
-                translate!("diff-error-invalid-context-length", "value" => value)
-            }
-            Self::InvalidUnifiedLength(value) => {
-                translate!("diff-error-invalid-unified-length", "value" => value)
-            }
-            Self::MissingOperands => {
-                translate!("diff-error-missing-operands", "util_name" => uucore::util_name())
-            }
-            Self::OptionsIncompatible(option_1, option_2) => translate!(
-                "diff-error-incompatible-options",
-                "opt1" => option_1,
-                "opt2" => option_2,
-            ),
-            Self::NotYetImplemented(s) => {
-                translate!("diff-error-not-yet-implemented", "option" => s)
-            }
-        };
-        write!(f, "{msg}")
-    }
-}
 
 // uu_app .args for the options
 pub fn uu_app() -> Command {

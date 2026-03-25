@@ -11,7 +11,7 @@ pub mod params_diff;
 pub mod side_diff;
 pub mod unified_diff;
 
-use crate::params_diff::{Format, Params};
+use crate::params_diff::{FormatOutput, Params};
 use clap::Command;
 use std::ffi::OsString;
 use std::io::{Read, Write, stdout};
@@ -176,17 +176,17 @@ pub fn diff_compare(params: &Params) -> UResult<()> {
 
     // run diff
     let result: Vec<u8> = match params.format_out {
-        Format::Normal => normal_diff::diff(&from_content, &to_content, params),
-        Format::Unified => unified_diff::diff(&from_content, &to_content, params),
-        Format::Context => context_diff::diff(&from_content, &to_content, params),
-        Format::Ed => ed_diff::diff(&from_content, &to_content, params)?,
+        FormatOutput::Normal => normal_diff::diff(&from_content, &to_content, params),
+        FormatOutput::Unified => unified_diff::diff(&from_content, &to_content, params),
+        FormatOutput::Context => context_diff::diff(&from_content, &to_content, params),
+        FormatOutput::Ed => ed_diff::diff(&from_content, &to_content, params)?,
         // .unwrap_or_else(|error| {
         //     // eprintln!("{error}");
         //     // uucore::error::set_exit_code(2);
         //     // std::process::exit(2);
         //     return super::Err(error);
         // }),
-        Format::SideBySide => {
+        FormatOutput::SideBySide => {
             let mut output = stdout().lock();
             side_diff::diff(&from_content, &to_content, &mut output, params)
         }
