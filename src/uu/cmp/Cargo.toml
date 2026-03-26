@@ -51,6 +51,10 @@ pretty_assertions.workspace = true
 uudiff.workspace = true
 tempfile.workspace = true
 
+[profile.release]
+# for flamegraph
+# debug = true
+
 [[bench]]
 name = "cmp_bench"
 harness = false

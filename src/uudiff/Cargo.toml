@@ -27,8 +27,6 @@ path = "src/lib/lib.rs"
 # instead of limiting to KiB, MiB, etc, one can write kib, mib, Mb or whatever case.
 # TODO feat_allow_case_insensitive_number_units = []
 
-
-
 [dependencies]
 bytecount.workspace = true
 chrono.workspace = true
@@ -59,7 +57,6 @@ nix = { workspace = true, features = [
   "user",
   "zerocopy",
 ] }
-
 
 [dev-dependencies]
 pretty_assertions.workspace = true

@@ -164,6 +164,8 @@ phf_codegen.workspace = true
 lto = true
 panic = "abort"
 codegen-units = 1
+# for flamegraph
+# debug = 1
 
 # A release-like profile that is as small as possible.
 [profile.release-small]

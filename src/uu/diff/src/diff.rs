@@ -30,35 +30,10 @@ pub fn uumain(args: impl uucore::Args) -> UResult<()> {
     let args_checked = clap_preparation(args);
     let matches =
         uudiff::clap_localization::handle_clap_result_with_exit_code(uu_app(), args_checked, 2)?;
-    // dbg!(&matches);
 
     let params: Params = matches.try_into()?;
-    // dbg!(params.format_out);
-
-    // let mut args = uucore::args_os().peekable();
-    // if args.peek().unwrap().to_string_lossy().ends_with("utils") {
-    //     args.next();
-    // }
-    // args.next();
-    // let params_old = match parse_params(args) {
-    //     Ok(p) => p,
-    //     Err(error) => {
-    //         eprintln!("{error}");
-    //         uucore::error::set_exit_code(2);
-    //         return Ok(());
-    //     }
-    // };
-    // dbg!(&params_old);
 
     diff_compare(&params)?;
-
-    // match diff_compare(&params) {
-    //     Ok(_) => todo!(),
-    //     Err(e) => {
-    //         dbg!(&e, e.code());
-    //         return Err(e);
-    //     }
-    // }
 
     Ok(())
 }

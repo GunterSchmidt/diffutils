@@ -46,6 +46,10 @@ pretty_assertions.workspace = true
 rand.workspace = true
 tempfile.workspace = true
 
+[profile.release]
+# for flamegraph
+# debug = 1
+
 [[bench]]
 name = "diff_bench"
 harness = false
