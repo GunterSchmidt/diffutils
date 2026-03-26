@@ -7,7 +7,6 @@
 
 use std::ffi::OsString;
 
-use os_display::Quotable;
 use uucore::parser::parse_size::ParseSizeError;
 
 use crate::{error::UError, translate};
@@ -179,7 +178,7 @@ impl std::fmt::Display for UParseError {
                 translate!("parse-error-conflicting-output-options", "opt1" => opt_1, "opt2" => opt_2)
             }
             Self::ExtraOperand(extra_operand) => {
-                translate!("parse-error-extra-operand", "operand" => extra_operand.quote())
+                translate!("parse-error-extra-operand", "operand" => extra_operand.to_string_lossy())
             }
             Self::InvalidContextLength(value) => {
                 translate!("parse-error-invalid-context-length", "value" => value)

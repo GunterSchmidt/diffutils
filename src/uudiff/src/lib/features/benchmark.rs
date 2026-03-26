@@ -3,7 +3,7 @@
 // For the full copyright and license information, please view the LICENSE
 // file that was distributed with this source code.
 
-//! Common benchmark utilities for uutils coreutils
+//! Common benchmark utilities for uutils diffutils.
 //!
 //! This module provides shared functionality for benchmarking utilities,
 //! including test data generation and binary execution helpers.

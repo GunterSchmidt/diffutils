@@ -640,7 +640,7 @@ mod parser {
             .arg("--bytes")
             .arg("1ZB")
             .fails_with_code(2)
-            .stderr_contains("cmp: invalid unit in '1ZB' for option --bytes");
+            .stderr_contains("cmp: invalid unit in '1ZB' for option '--bytes'");
 
         new_ucmd!()
         .arg("lorem_ipsum.txt")
@@ -648,7 +648,7 @@ mod parser {
         .arg("--bytes")
         .arg("99999999999999999999999999999999999999999999999999999999999")
         .fails_with_code(2)
-        .stderr_contains("cmp: invalid value '99999999999999999999999999999999999999999999999999999999999' (too large) for option --bytes");
+        .stderr_contains("cmp: invalid value '99999999999999999999999999999999999999999999999999999999999' (too large) for option '--bytes'");
     }
 
     #[test]
@@ -659,7 +659,7 @@ mod parser {
             .arg("lorem_ipsum_diff.txt")
             .arg("--bytes=-1")
             .fails_with_code(2)
-            .stderr_contains("cmp: invalid value '-1' for option --bytes");
+            .stderr_contains("cmp: invalid value '-1' for option '--bytes'");
     }
 
     #[test]
@@ -671,7 +671,7 @@ mod parser {
             .arg("1")
             .arg("2Y")
             .fails_with_code(2)
-            .stderr_contains("cmp: invalid unit in '2Y' for option --ignore-initial");
+            .stderr_contains("cmp: invalid unit in '2Y' for option '--ignore-initial'");
 
         new_ucmd!()
         .arg("lorem_ipsum.txt")
@@ -679,7 +679,7 @@ mod parser {
         .arg("--ignore-initial")
         .arg("99999999999999999999999999999999999999999999999999999999999")
         .fails_with_code(2)
-        .stderr_contains("cmp: invalid value '99999999999999999999999999999999999999999999999999999999999' (too large) for option --ignore-initial");
+        .stderr_contains("cmp: invalid value '99999999999999999999999999999999999999999999999999999999999' (too large) for option '--ignore-initial'");
     }
 
     #[test]
@@ -691,7 +691,7 @@ mod parser {
             .arg("--ignore-initial")
             .arg("1:2:3")
             .fails_with_code(2)
-            .stderr_contains("cmp: invalid unit in '2:3' for option --ignore-initial");
+            .stderr_contains("cmp: invalid unit in '2:3' for option '--ignore-initial'");
     }
 
     #[test]
@@ -714,7 +714,7 @@ mod parser {
             .arg("lorem_ipsum.txt")
             .arg("lorem_ipsum_diff.txt")
             .fails_with_code(2)
-            .stderr_contains("cmp: options --verbose and --silent are incompatible");
+            .stderr_contains("cmp: options '--verbose' and '--silent' are incompatible");
     }
 
     #[test]
@@ -725,7 +725,7 @@ mod parser {
             .arg("lorem_ipsum.txt")
             .arg("lorem_ipsum_diff.txt")
             .fails_with_code(2)
-            .stderr_contains("cmp: options --verbose and --silent are incompatible");
+            .stderr_contains("cmp: options '--verbose' and '--silent' are incompatible");
     }
 
     #[test]
@@ -737,7 +737,7 @@ mod parser {
             .arg("lorem_ipsum.txt")
             .arg("lorem_ipsum_diff.txt")
             .fails_with_code(2)
-            .stderr_contains("cmp: options --print-bytes and --silent are incompatible");
+            .stderr_contains("cmp: options '--print-bytes' and '--silent' are incompatible");
     }
 
     #[test]

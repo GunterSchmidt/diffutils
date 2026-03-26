@@ -388,6 +388,7 @@ mod parser {
             "--context 42",
             "-42C",
         ] {
+            // dbg!(&arg);
             assert!(parse(&format!("diff {arg} foo bar")).is_err());
         }
     }

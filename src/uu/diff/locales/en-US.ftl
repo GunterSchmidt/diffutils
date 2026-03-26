@@ -1,3 +1,4 @@
+# TODO French translation
 diff-about = Compare two text files for differences.
 
   With no FILE, or when FILE is -, read standard input.

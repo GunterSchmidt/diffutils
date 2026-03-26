@@ -912,6 +912,7 @@ pub fn uu_app() -> Command {
         )
         .arg(
             Arg::new(options::CONTEXT_LINES)
+                .long("context")
                 .short('c')
                 .value_name("NUM")
                 .num_args(0..=1)
@@ -922,7 +923,6 @@ pub fn uu_app() -> Command {
         )
         .arg(
             Arg::new(options::CONTEXT_LINES_UPPER)
-                .long("context")
                 .short('C')
                 .value_name("NUM")
                 .action(ArgAction::Set)
@@ -1228,6 +1228,7 @@ pub fn uu_app() -> Command {
         )
         .arg(
             Arg::new(options::UNIFIED_LINES)
+                .long("unified")
                 .short('u')
                 .value_name("NUM")
                 .num_args(0..=1)
@@ -1238,7 +1239,6 @@ pub fn uu_app() -> Command {
         )
         .arg(
             Arg::new(options::UNIFIED_LINES_UPPER)
-                .long("unified")
                 .short('U')
                 .value_name("NUM")
                 .action(ArgAction::Set)
