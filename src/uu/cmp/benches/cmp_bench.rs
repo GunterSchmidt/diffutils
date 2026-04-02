@@ -19,13 +19,14 @@ const TEMP_DIR: &str = "";
 // just for FILE_SIZE_KILO_BYTES
 const MB: u64 = 1_000;
 
-use std::sync::OnceLock;
+use std::{
+    path::{Path, PathBuf},
+    sync::OnceLock,
+};
 
 use divan::Bencher;
 use tempfile::TempDir;
 use uu_cmp::{params_cmp::Params, uu_app};
-// use uu_cmp::parse_params;
-// use uu_cmp::uumain;
 use uudiff::benchmark::{
     bench_binary,
     prepare_bench::{BenchContext, generate_test_files_bytes},
@@ -66,7 +67,6 @@ fn cmp_compare_files_equal(bencher: Bencher, kb: u64) {
     let params: Params = matches.try_into().unwrap();
 
     bencher
-        // .with_inputs(|| prepare::cmp_params_identical_testfiles(lines))
         .with_inputs(|| params.clone())
         .bench_refs(|params| uu_cmp::cmp_compare(params));
 }
@@ -82,7 +82,6 @@ fn mmap_cmp_compare_files_equal(bencher: Bencher, kb: u64) {
     let params: Params = matches.try_into().unwrap();
 
     bencher
-        // .with_inputs(|| prepare::cmp_params_identical_testfiles(lines))
         .with_inputs(|| params.clone())
         .bench_refs(|params| uu_cmp::cmp_compare_mmap(params));
 }
@@ -95,7 +94,6 @@ fn cmp_compare_files_different(bencher: Bencher, kb: u64) {
     let args = str_to_args(&cmd).into_iter();
 
     bencher
-        // .with_inputs(|| prepare::cmp_params_identical_testfiles(lines))
         .with_inputs(|| args.clone())
         .bench_refs(|params| uu_cmp::uumain(params.peekable()));
 }
@@ -108,26 +106,27 @@ fn cmd_cmp_gnu_equal(bencher: Bencher, kb: u64) {
     let fp = get_context().get_files_equal_kb(kb).unwrap();
     let args_str = format!("{} {}", fp.from, fp.to);
     bencher
-        // .with_inputs(|| prepare::cmp_params_identical_testfiles(lines))
         .with_inputs(|| args_str.clone())
-        .bench_refs(|cmd_args| bench_binary::bench_binary("cmp", cmd_args));
+        .bench_refs(|cmd_args| bench_binary::bench_binary(&PathBuf::from("cmp"), cmd_args));
 }
 
 // bench the compiled release version
 #[cfg(feature = "feat_run_binary_bench")]
 #[divan::bench(args = FILE_SIZES_IN_KILO_BYTES)]
 fn cmd_cmp_release_equal(bencher: Bencher, kb: u64) {
-    // search for src, then shorten path
-    let dir = std::env::current_dir().unwrap();
-    let path = dir.to_string_lossy();
-    let path = path.trim_end_matches("src/uu/cmp");
-    let prg = path.to_string() + "target/release/cmp";
+    let mut dir = std::env::current_dir().unwrap();
+    let suffix = Path::new("src").join("uu").join("cmp");
+    if dir.ends_with(suffix) {
+        dir.pop();
+        dir.pop();
+        dir.pop();
+    }
+    let prg = dir.join("target").join("release").join("cmp");
 
     let fp = get_context().get_files_equal_kb(kb).unwrap();
     let args_str = format!("{} {}", fp.from, fp.to);
 
     bencher
-        // .with_inputs(|| prepare::cmp_params_identical_testfiles(lines))
         .with_inputs(|| args_str.clone())
         .bench_refs(|cmd_args| bench_binary::bench_binary(&prg, cmd_args));
 }

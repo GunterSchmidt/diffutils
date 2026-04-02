@@ -967,10 +967,10 @@ mod parser {
             let values = [
                 (1_000 as SkipU64)
                     .checked_pow((i + 1) as u32)
-                    .expect(&format!("number too large for suffix {suffixes:?}")),
+                    .unwrap_or_else(|| panic!("number too large for suffix {suffixes:?}")),
                 (1024 as SkipU64)
                     .checked_pow((i + 1) as u32)
-                    .expect(&format!("number too large for suffix {suffixes:?}")),
+                    .unwrap_or_else(|| panic!("number too large for suffix {suffixes:?}")),
             ];
             for (j, v) in values.iter().enumerate() {
                 assert_eq!(
