@@ -11,10 +11,11 @@
 //! File generation up to 1 GB is really fast, Benchmarking above 100 MB takes very long.
 
 /// Generate test files with these sizes in KB.
-const FILE_SIZES_IN_KILO_BYTES: [u64; 4] = [100, 1 * MB, 10 * MB, 25 * MB];
+const FILE_SIZES_IN_KILO_BYTES: [u64; 5] = [100, 1 * MB, 10 * MB, 25 * MB, 100 * MB];
 const NUM_DIFF: u64 = 4;
 // Empty String to use TempDir (files will be removed after test) or specify dir to keep generated files
 const TEMP_DIR: &str = "";
+// const TEMP_DIR: &str = "/home/gunnar/Downloads/tmp";
 // just for FILE_SIZE_KILO_BYTES
 const MB: u64 = 1_000;
 
@@ -60,11 +61,30 @@ fn cmp_compare_files_equal(bencher: Bencher, kb: u64) {
     let fp = get_context().get_files_equal_kb(kb).unwrap();
     let cmd = format!("cmp {} {}", fp.from, fp.to);
     let args = str_to_args(&cmd).into_iter();
+    let matches =
+        uudiff::clap_localization::handle_clap_result_with_exit_code(uu_app(), args, 2).unwrap();
+    let params: Params = matches.try_into().unwrap();
 
     bencher
         // .with_inputs(|| prepare::cmp_params_identical_testfiles(lines))
-        .with_inputs(|| args.clone())
-        .bench_refs(|params| uu_cmp::uumain(params.peekable()));
+        .with_inputs(|| params.clone())
+        .bench_refs(|params| uu_cmp::cmp_compare(params));
+}
+
+// bench equal, full file read
+#[divan::bench(args = FILE_SIZES_IN_KILO_BYTES)]
+fn mmap_cmp_compare_files_equal(bencher: Bencher, kb: u64) {
+    let fp = get_context().get_files_equal_kb(kb).unwrap();
+    let cmd = format!("cmp {} {}", fp.from, fp.to);
+    let args = str_to_args(&cmd).into_iter();
+    let matches =
+        uudiff::clap_localization::handle_clap_result_with_exit_code(uu_app(), args, 2).unwrap();
+    let params: Params = matches.try_into().unwrap();
+
+    bencher
+        // .with_inputs(|| prepare::cmp_params_identical_testfiles(lines))
+        .with_inputs(|| params.clone())
+        .bench_refs(|params| uu_cmp::cmp_compare_mmap(params));
 }
 
 // bench different; cmp exits on first difference

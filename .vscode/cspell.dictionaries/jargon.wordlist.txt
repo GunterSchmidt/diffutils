@@ -1,5 +1,6 @@
 # * diffutils project
-
+mmap
+memmap
 
 # *** the following part is a copy of coreutils ***
 AFAICT

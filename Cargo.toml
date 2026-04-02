@@ -91,7 +91,6 @@ license = "MIT"
 readme = "README.package.md"
 version = "0.5.1"
 
-
 [workspace.dependencies]
 assert_cmd = "2.2.0"
 bytecount = "0.6.9"
@@ -104,6 +103,7 @@ divan = { version = "4.3.0", package = "codspeed-divan-compat" }
 itertools = "0.14.0"
 itoa = "1.0.18"
 libc = "0.2.183"
+memmap2 = "0.9.10"
 nix = { version = "0.31.2", default-features = false }
 num-traits = "0.2.19"
 phf = "0.13.1"

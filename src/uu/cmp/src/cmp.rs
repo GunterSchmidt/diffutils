@@ -7,15 +7,17 @@
 
 pub mod params_cmp;
 
+use memmap2::Mmap;
 use std::env::{self};
 use std::ffi::OsString;
+use std::fs::{File, Metadata};
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::{cmp, fs, io};
 
 use clap::Command;
 use uudiff::common_errors::UtilsError;
 use uudiff::error::{FromIo, UResult};
-use uudiff::utils::{self, CompareOk};
+use uudiff::utils::{self};
 
 use crate::params_cmp::{BytesLimitU64, Params, SkipU64};
 
@@ -24,6 +26,17 @@ use std::os::windows::fs::MetadataExt;
 
 #[cfg(not(target_os = "windows"))]
 use std::os::unix::fs::MetadataExt;
+
+pub enum CmpOk {
+    Equal,
+    DifferentSilent,
+    DifferentVerbose,
+    /// first difference (at_byte, at_line, from_byte, to_byte),
+    /// --verbose will be reported directly
+    Different(BytesLimitU64, u64, u8, u8),
+    /// difference EOF (at_byte, at_line, start_of_line, eof_on)
+    DifferentEOF(BytesLimitU64, u64, bool, String),
+}
 
 /// Entry into cmp.
 #[uucore::main]
@@ -34,8 +47,16 @@ pub fn uumain(args: impl uucore::Args) -> UResult<()> {
 
     match cmp_compare(&params) {
         Ok(res) => match res {
-            CompareOk::Equal => uucore::error::set_exit_code(0),
-            CompareOk::Different => uucore::error::set_exit_code(1),
+            CmpOk::Equal => uucore::error::set_exit_code(0),
+            CmpOk::DifferentSilent | CmpOk::DifferentVerbose => uucore::error::set_exit_code(1),
+            CmpOk::Different(at_byte, at_line, from_byte, to_byte) => {
+                report_difference(from_byte, to_byte, at_byte, at_line, &params)?;
+                uucore::error::set_exit_code(1);
+            }
+            CmpOk::DifferentEOF(at_byte, at_line, start_of_line, eof_on) => {
+                report_eof(at_byte, at_line, start_of_line, &eof_on, &params);
+                uucore::error::set_exit_code(1);
+            }
         },
         Err(e) => {
             // dbg!(&params, &e);
@@ -50,63 +71,58 @@ pub fn uumain(args: impl uucore::Args) -> UResult<()> {
     Ok(())
 }
 
-pub fn cmp_compare(params: &Params) -> UResult<CompareOk> {
-    // check if file is actually a directory, which is not allowed
-    if params.from != "-" {
-        match fs::metadata(&params.from) {
-            Ok(m) => {
-                if m.is_dir() {
-                    return Err(UtilsError::DirectoryNotAllowed(params.from.clone()).into());
-                }
-            }
-            Err(e) => {
-                let io = e.map_err_context(|| params.from_as_string_lossy());
-                return Err(UtilsError::Io(io).into());
-            }
-        }
-    }
-    if params.to != "-" {
-        match fs::metadata(&params.to) {
-            Ok(m) => {
-                if m.is_dir() {
-                    return Err(UtilsError::DirectoryNotAllowed(params.to.clone()).into());
-                }
-            }
-            Err(e) => {
-                let io = e.map_err_context(|| params.to_as_string_lossy());
-                return Err(UtilsError::Io(io).into());
-            }
-        }
-    }
+/// Compares two files.
+///
+/// This function does not output anything unless '--verbose' is set
+/// for better library usage.
+///
+/// # Returns
+/// CmpOk or UError
+pub fn cmp_compare(params: &Params) -> UResult<CmpOk> {
     // check is same file and has no shift by skipping bytes
     if utils::is_same_file(&params.from, &params.to)
         && params.skip_bytes_from == params.skip_bytes_to
     {
-        return Ok(CompareOk::Equal);
+        return Ok(CmpOk::Equal);
     }
-
-    let mut from = prepare_reader(&params.from, params.skip_bytes_from)?;
-    let mut to = prepare_reader(&params.to, params.skip_bytes_to)?;
 
     let mut offset_width = params.bytes_limit.unwrap_or(BytesLimitU64::MAX);
 
-    if let (Ok(a_meta), Ok(b_meta)) = (fs::metadata(&params.from), fs::metadata(&params.to)) {
-        #[cfg(not(target_os = "windows"))]
-        let (from_size, to_size) = (a_meta.size(), b_meta.size());
+    if params.from != "-" && params.to != "-" {
+        // check if file is actually a directory, which is not allowed
+        let from_meta = check_metadata(&params.from)?;
+        let to_meta = check_metadata(&params.to)?;
 
-        #[cfg(target_os = "windows")]
-        let (from_size, to_size) = (a_meta.file_size(), b_meta.file_size());
+        let (from_size, to_size) = (from_meta.size(), to_meta.size());
 
         // If the files have different sizes, we already know they are not identical. If we have not
         // been asked to show even the first difference, we can quit early.
-        if params.silent && from_size != to_size {
-            return Ok(CompareOk::Different);
+        if from_size != to_size && params.silent {
+            return Ok(CmpOk::DifferentSilent);
+        }
+
+        #[cfg(feature = "feat_fast_mmap2_compare")]
+        if !params.verbose
+            && params.skip_bytes_from.is_none()
+            && params.skip_bytes_to.is_none()
+            && from_size == to_size
+            && usize::try_from(from_size).is_ok()
+        {
+            return cmp_compare_mmap(params);
         }
 
         let smaller = cmp::min(from_size, to_size);
         offset_width = cmp::min(smaller, offset_width);
+    } else if params.from == "-" {
+        // check if file is actually a directory, which is not allowed
+        check_metadata(&params.to)?;
+    } else {
+        // check if file is actually a directory, which is not allowed
+        check_metadata(&params.from)?;
     }
 
+    let mut from = prepare_reader(&params.from, params.skip_bytes_from)?;
+    let mut to = prepare_reader(&params.to, params.skip_bytes_to)?;
     let offset_width = 1 + offset_width.checked_ilog10().unwrap_or(1) as usize;
 
     // Capacity calc: at_byte width + 2 x 3-byte octal numbers + 2 x 4-byte value + 4 spaces
@@ -116,7 +132,7 @@ pub fn cmp_compare(params: &Params) -> UResult<CompareOk> {
     let mut at_line = 1;
     let mut start_of_line = true;
     let mut stdout = BufWriter::new(io::stdout().lock());
-    let mut compare = CompareOk::Equal;
+    let mut compare = CmpOk::Equal;
     loop {
         // Fill up our buffers.
         let from_buf = match from.fill_buf() {
@@ -147,8 +163,17 @@ pub fn cmp_compare(params: &Params) -> UResult<CompareOk> {
                 &params.to.to_string_lossy()
             };
 
-            report_eof(at_byte, at_line, start_of_line, eof_on, params);
-            return Ok(CompareOk::Different);
+            // report_eof(at_byte, at_line, start_of_line, eof_on, params);
+            return if params.silent {
+                Ok(CmpOk::DifferentSilent)
+            } else {
+                Ok(CmpOk::DifferentEOF(
+                    at_byte,
+                    at_line,
+                    start_of_line,
+                    eof_on.to_string(),
+                ))
+            };
         }
 
         // Fast path - for long files in which almost all bytes are the same we
@@ -179,9 +204,8 @@ pub fn cmp_compare(params: &Params) -> UResult<CompareOk> {
         // first one runs out.
         for (&from_byte, &to_byte) in from_buf.iter().zip(to_buf.iter()) {
             if from_byte != to_byte {
-                compare = CompareOk::Different;
-
                 if params.verbose {
+                    compare = CmpOk::DifferentVerbose;
                     format_verbose_difference(
                         from_byte,
                         to_byte,
@@ -199,8 +223,8 @@ pub fn cmp_compare(params: &Params) -> UResult<CompareOk> {
                     // }
                     output.clear();
                 } else {
-                    report_difference(from_byte, to_byte, at_byte, at_line, params)?;
-                    return Ok(CompareOk::Different);
+                    // report_difference(from_byte, to_byte, at_byte, at_line, params)?;
+                    return Ok(CmpOk::Different(at_byte, at_line, from_byte, to_byte));
                 }
             }
 
@@ -224,6 +248,89 @@ pub fn cmp_compare(params: &Params) -> UResult<CompareOk> {
     }
 
     Ok(compare)
+}
+
+/// Compares two files with direct mapping from file memory.
+///
+/// This only works for two equal sized files (not stdin) smaller than usize.
+/// Also the only options allowed are '--bytes' and '--print-bytes'.
+/// Prior tests for file size and directory need to be done.
+///
+/// When these are met, performance is 2-3 times faster.
+pub fn cmp_compare_mmap(params: &Params) -> UResult<CmpOk> {
+    let f1 = File::open(&params.from)?;
+    let f2 = File::open(&params.to)?;
+
+    let m1 = unsafe { Mmap::map(&f1)? };
+    let m2 = unsafe { Mmap::map(&f2)? };
+
+    // Use chunks to be friendly to the CPU cache (e.g., 64KB)
+    let chunk_size = 64 * 1024;
+
+    // if --bytes limit is set
+    let end = match params.bytes_limit {
+        Some(n) => {
+            if n < usize::MAX as u64 {
+                n as usize
+            } else {
+                m1.len()
+            }
+        }
+        None => m1.len(),
+    };
+
+    // Fast path - for long files in which almost all bytes are the same we
+    // can do a direct comparison to let the compiler optimize.
+    let mut i2 = m2[0..end].chunks(chunk_size);
+    for (c, c1) in m1[0..end].chunks(chunk_size).enumerate() {
+        let c2 = i2.next().unwrap();
+        if c1 != c2 {
+            // block is different, compare single bytes
+            let mut at_line = 1;
+            for ((i, b1), b2) in c1.iter().enumerate().zip(c2) {
+                if b1 != b2 {
+                    if params.silent {
+                        return Ok(CmpOk::DifferentSilent);
+                    }
+                    // return first difference
+                    // count lines
+                    let mut i1 = m1.chunks(chunk_size);
+                    for _ in 0..c {
+                        let cc1 = i1.next().unwrap();
+                        at_line += bytecount::count(cc1, b'\n') as u64;
+                    }
+                    at_line += bytecount::count(&c1[0..i], b'\n') as u64;
+
+                    return Ok(CmpOk::Different(
+                        (chunk_size * c + i + 1) as u64,
+                        at_line,
+                        *b1,
+                        *b2,
+                    ));
+                }
+            }
+            return Ok(CmpOk::DifferentSilent);
+        }
+    }
+
+    Ok(CmpOk::Equal)
+}
+
+fn check_metadata(filepath: &OsString) -> UResult<Metadata> {
+    // check if file is actually a directory, which is not allowed
+    match fs::metadata(filepath) {
+        Ok(m) => {
+            if m.is_dir() {
+                Err(UtilsError::DirectoryNotAllowed(filepath.clone()).into())
+            } else {
+                Ok(m)
+            }
+        }
+        Err(e) => {
+            let io = e.map_err_context(|| filepath.to_string_lossy().to_string());
+            Err(UtilsError::Io(io).into())
+        }
+    }
 }
 
 fn prepare_reader(
@@ -406,6 +513,7 @@ fn report_difference(
     Ok(())
 }
 
+// TODO catch error in case of > /dev/full?
 #[inline]
 fn report_eof(
     at_byte: BytesLimitU64,
